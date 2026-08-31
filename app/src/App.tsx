@@ -791,6 +791,12 @@ export default function App() {
     showToast(`💼 Activo "${newAsset.name}" registrado exitosamente`);
   };
 
+  const handleDeleteAsset = (id: string) => {
+    const asset = fixedAssets.find((a) => a.id === id);
+    setFixedAssets((prev) => prev.filter((a) => a.id !== id));
+    showToast(`🗑️ Activo "${asset ? asset.name : ''}" eliminado definitivamente`);
+  };
+
   const handleAddItemToInventory = (newItem: InventoryItem) => {
     const updatedInventoryList = [newItem, ...inventory];
     setInventory(updatedInventoryList);
@@ -1008,6 +1014,7 @@ export default function App() {
               onDeleteItem={handleDeleteInventoryItem}
               onArchiveItem={handleArchiveInventoryItem}
               onAddAsset={() => setIsAddAssetOpen(true)}
+              onDeleteAsset={handleDeleteAsset}
               searchTerm={globalSearchTerm}
               onSearchChange={setGlobalSearchTerm}
             />

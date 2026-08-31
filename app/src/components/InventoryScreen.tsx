@@ -16,6 +16,7 @@ interface InventoryScreenProps {
   onDeleteItem?: (id: string) => void;
   onArchiveItem?: (item: InventoryItem) => void;
   onAddAsset?: () => void;
+  onDeleteAsset?: (id: string) => void;
   searchTerm?: string;
   onSearchChange?: (val: string) => void;
 }
@@ -31,6 +32,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   onDeleteItem,
   onArchiveItem,
   onAddAsset,
+  onDeleteAsset,
   searchTerm = '',
   onSearchChange
 }) => {
@@ -45,6 +47,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [viewingProviderName, setViewingProviderName] = useState<string | null>(null);
+  const [assetToDelete, setAssetToDelete] = useState<FixedAsset | null>(null);
 
   const closeActionsMenu = () => {
     setOpenMenuId(null);
@@ -182,26 +185,28 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
       </div>
 
       {/* Inventory Table + Critical Stock Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Data Table Container (2 Columns) */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-[#c1c8c2] shadow-2xs overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[760px]">
+          <table className="w-full text-left border-collapse min-w-[640px]">
             <thead>
               <tr className="bg-[#F0F9F4] border-b border-[#c1c8c2] font-label-caps text-[11px] text-[#414844]">
-                <th className="py-3 px-4 font-semibold whitespace-nowrap">ESTADO</th>
-                <th className="py-3 px-4 font-semibold whitespace-nowrap">NOMBRE</th>
-                <th className="py-3 px-4 font-semibold whitespace-nowrap">PROVEEDOR</th>
-                <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">COSTO UNITARIO</th>
-                <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">STOCK</th>
-                <th className="py-3 px-4 font-semibold whitespace-nowrap">TIEMPO DE ENTREGA</th>
-                <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">ACCIONES</th>
+                {/* Oculta (no eliminada): el ícono de estado se considera redundante con
+                    el resaltado de fila / Stock Crítico. */}
+                <th className="hidden py-3 px-3 font-semibold whitespace-nowrap">ESTADO</th>
+                <th className="py-3 px-3 font-semibold whitespace-nowrap">NOMBRE</th>
+                <th className="py-3 px-3 font-semibold whitespace-nowrap">PROVEEDOR</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">COSTO UNITARIO</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">STOCK</th>
+                <th className="py-3 px-3 font-semibold whitespace-nowrap">TIEMPO DE ENTREGA</th>
+                <th className="py-3 px-3 font-semibold text-right whitespace-nowrap">ACCIONES</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-[#c1c8c2]/50">
               {paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-[#717973]">
+                  <td colSpan={6} className="py-8 text-center text-[#717973]">
                     No se encontraron insumos para esta categoría o búsqueda.
                   </td>
                 </tr>
@@ -221,8 +226,8 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                           : ''
                       }`}
                     >
-                      {/* Status Icon */}
-                      <td className="py-3.5 px-4">
+                      {/* Status Icon — oculta, ver nota en el <th> ESTADO de arriba */}
+                      <td className="hidden py-3.5 px-3">
                         {item.isArchived ? (
                           <div
                             className="flex items-center justify-center w-5 h-5 rounded-full bg-[#717973] text-white"
@@ -250,7 +255,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </td>
 
                       {/* Name */}
-                      <td className="py-3.5 px-4 font-medium text-[#161d1f]">
+                      <td className="py-3.5 px-3 font-medium text-[#161d1f]">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
                             className={
@@ -273,7 +278,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </td>
 
                       {/* Provider */}
-                      <td className="py-3.5 px-4 text-[#414844]">
+                      <td className="py-3.5 px-3 text-[#414844]">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate max-w-[140px]" title={item.provider}>
                             {item.provider}
@@ -292,12 +297,12 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </td>
 
                       {/* Unit Cost */}
-                      <td className="py-3.5 px-4 font-numeric-data text-right text-[#161d1f] font-semibold">
+                      <td className="py-3.5 px-3 font-numeric-data text-right text-[#161d1f] font-semibold">
                         ${Math.round(item.unitCost).toLocaleString()}
                       </td>
 
                       {/* Stock */}
-                      <td className="py-3.5 px-4 font-numeric-data text-right">
+                      <td className="py-3.5 px-3 font-numeric-data text-right">
                         <span
                           className={`font-bold ${
                             item.isArchived
@@ -312,7 +317,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </td>
 
                       {/* Lead Time */}
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-3">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#e8eff1] text-[#414844] font-label-caps text-[10px] font-semibold tracking-wide uppercase">
                           <span className="material-symbols-outlined text-[14px]">
                             {item.leadTimeType === 'INT' ? 'flight_takeoff' : 'local_shipping'}
@@ -322,7 +327,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="py-3.5 px-4 text-right relative">
+                      <td className="py-3.5 px-3 text-right relative">
                         <button
                           id={`btn-actions-${item.id}`}
                           onClick={(e) => {
@@ -574,6 +579,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                 <th className="py-2.5 px-4 font-semibold text-right">Costo Inicial</th>
                 <th className="py-2.5 px-4 font-semibold w-1/3">Progreso de Amortización</th>
                 <th className="py-2.5 px-4 font-semibold text-center">Estado</th>
+                <th className="py-2.5 px-4 font-semibold text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-[#c1c8c2]/50">
@@ -632,6 +638,22 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                     >
                       {asset.status === 'RECOVERED' ? 'RECUPERADO' : 'EN PROCESO'}
                     </span>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    {onDeleteAsset && (
+                      <button
+                        type="button"
+                        id={`btn-delete-asset-${asset.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAssetToDelete(asset);
+                        }}
+                        className="text-[#717973] hover:text-[#ba1a1a] p-1.5 rounded-lg hover:bg-[#ffdad6]/40 transition-colors cursor-pointer"
+                        title={`Eliminar "${asset.name}"`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -787,6 +809,21 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
             setItemToDelete(null);
             setIsDeleteModalOpen(false);
           }
+        }}
+      />
+
+      {/* Confirm Delete Fixed Asset Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!assetToDelete}
+        itemName={assetToDelete?.name}
+        title="¿Eliminar activo fijo definitivamente?"
+        message="¿Estás seguro de que deseas eliminar este activo? Se perderá su historial de amortización/ROI de forma permanente."
+        onClose={() => setAssetToDelete(null)}
+        onConfirm={() => {
+          if (assetToDelete && onDeleteAsset) {
+            onDeleteAsset(assetToDelete.id);
+          }
+          setAssetToDelete(null);
         }}
       />
     </div>

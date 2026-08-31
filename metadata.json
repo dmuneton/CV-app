@@ -1,0 +1,6 @@
+{
+  "name": "Creatividad Verde",
+  "description": "Plataforma integral de logística botánica, ingeniería de producto, costeo de insumos, CRM de clientes y control de inventario.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

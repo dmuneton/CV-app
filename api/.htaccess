@@ -1,0 +1,11 @@
+# Nunca permitir que se descargue config.php directamente (por si PHP alguna
+# vez no se ejecuta correctamente en este folder, esto es la última barrera).
+<Files "config.php">
+  Require all denied
+</Files>
+<Files "config.example.php">
+  Require all denied
+</Files>
+<Files "schema.sql">
+  Require all denied
+</Files>

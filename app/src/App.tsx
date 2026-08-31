@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ScreenType, OrderItem, BOMComponent, ProductTemplate, ClientProfile, FixedAsset, InventoryItem, PurchasedItem, Provider } from './types';
 import {
   INITIAL_ORDERS,
@@ -8,6 +8,7 @@ import {
   INITIAL_FIXED_ASSETS,
   INITIAL_INVENTORY
 } from './data/mockData';
+import { fetchAppState, saveAppState } from './api/client';
 
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -81,6 +82,98 @@ export default function App() {
     mode: PaymentActionMode;
   } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Data sync (Hostinger MySQL via api/data.php) ---------------------------------
+  // isLoaded gates the first render so we don't flash the example data before the
+  // real saved data (if any) arrives. dbConnected tracks whether the API actually
+  // responded at least once — used only to warn once if it never did.
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const skipNextAutosave = useRef(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const result = await fetchAppState();
+      if (cancelled) return;
+
+      if (!result) {
+        // API not reachable (local dev without the PHP backend, or Hostinger not
+        // configured yet) — keep the example data already in state and just warn.
+        setDbConnected(false);
+        setIsLoaded(true);
+        showToast('⚠️ No se pudo conectar con la base de datos — los cambios no se guardarán hasta que se resuelva.');
+        return;
+      }
+
+      setDbConnected(true);
+      const { state, seeded } = result;
+
+      if (seeded) {
+        setOrders(state.orders);
+        setInventory(state.inventory);
+        setClients(state.clients);
+        setTemplates(state.templates);
+        setFixedAssets(state.fixedAssets);
+        setProviders(state.providers);
+        setBomList(state.bomList && state.bomList.length > 0 ? state.bomList : INITIAL_BOM);
+        setCashBalance(state.cashBalance);
+        setNetProfit(state.netProfit);
+      } else {
+        // First time ever connecting: the database is empty, so push the current
+        // example data up as the starting point for everyone from now on.
+        await saveAppState({
+          orders,
+          inventory,
+          clients,
+          templates,
+          fixedAssets,
+          providers,
+          bomList,
+          cashBalance,
+          netProfit
+        });
+        showToast('🌱 Base de datos conectada por primera vez — se guardaron los datos iniciales.');
+      }
+
+      skipNextAutosave.current = true;
+      setIsLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosave: whenever any persisted piece of state changes after the initial
+  // load, push the full state to the database a moment later (debounced so a
+  // burst of clicks — e.g. the quantity steppers — doesn't fire one save per
+  // click). Silent on success; a toast only if a save actually fails, since
+  // that's the one case the user needs to know about.
+  useEffect(() => {
+    if (!isLoaded || dbConnected === false) return;
+    if (skipNextAutosave.current) {
+      skipNextAutosave.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      saveAppState({
+        orders,
+        inventory,
+        clients,
+        templates,
+        fixedAssets,
+        providers,
+        bomList,
+        cashBalance,
+        netProfit
+      }).then((ok) => {
+        if (!ok) showToast('⚠️ No se pudo guardar en la base de datos — revisa tu conexión e inténtalo de nuevo.');
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, inventory, clients, templates, fixedAssets, providers, bomList, cashBalance, netProfit, isLoaded]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -809,6 +902,17 @@ export default function App() {
   const handleExportCRM = () => {
     showToast(`📊 Directorio de clientes de alto valor exportado a Excel / PDF`);
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#f4fafd]">
+        <div className="flex flex-col items-center gap-3 text-[#012d1d]">
+          <span className="material-symbols-outlined text-4xl animate-spin">progress_activity</span>
+          <span className="text-sm font-semibold">Cargando datos...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#f4fafd] text-[#161d1f] font-sans antialiased">

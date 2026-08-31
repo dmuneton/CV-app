@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Real DB credentials — created directly on the Hostinger server, never committed.
+api/config.php

@@ -5,6 +5,10 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Deployed at https://<tu-dominio>/crm/ en Hostinger (public_html/crm) — sin esto,
+    // los assets compilados se piden en la raíz del dominio (/assets/...) y no en
+    // /crm/assets/..., y la página queda en blanco.
+    base: '/crm/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

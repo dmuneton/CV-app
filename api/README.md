@@ -5,6 +5,21 @@ en `crm.creatividadverde.com`) lea y guarde de verdad en tu base de datos MySQL
 de Hostinger. Sin esto, la aplicación solo guarda los datos mientras tienes la
 pestaña abierta — al recargar, vuelve a los datos de ejemplo.
 
+## ⚠️ Si ya tenías la base de datos conectada (actualización)
+
+Esta versión agrega una columna nueva (`created_at`, para los gráficos de
+Informes). **Antes de actualizar el sitio en Hostinger**, entra a phpMyAdmin →
+pestaña SQL, y ejecuta:
+
+```sql
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
+```
+
+Si no la ejecutas primero, guardar cambios en la aplicación empezará a fallar
+(el error se vería como "No se pudo guardar" en la aplicación). Este mismo
+comando ya viene incluido en [schema.sql](schema.sql), así que si vuelves a
+pegar y ejecutar todo ese archivo también queda resuelto.
+
 ## Configuración (una sola vez)
 
 ### 1. Crear las tablas

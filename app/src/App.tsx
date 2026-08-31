@@ -653,6 +653,24 @@ export default function App() {
     setPendingPaymentAction(null);
   };
 
+  // Moves money between Efectivo and Banco within Saldo en Caja — doesn't change the
+  // total, just how it's split (e.g. you deposited today's cash sales at the bank).
+  const handleTransferCash = (
+    from: 'efectivo' | 'banco',
+    to: 'efectivo' | 'banco',
+    amount: number
+  ) => {
+    if (amount <= 0 || from === to) return;
+    setCashBalance((prev) => {
+      const safeAmount = Math.min(amount, prev[from]);
+      if (safeAmount <= 0) return prev;
+      return { ...prev, [from]: prev[from] - safeAmount, [to]: prev[to] + safeAmount };
+    });
+    const fromLabel = from === 'efectivo' ? 'Efectivo' : 'Banco';
+    const toLabel = to === 'efectivo' ? 'Efectivo' : 'Banco';
+    showToast(`🔁 $${amount.toLocaleString()} pasados de ${fromLabel} a ${toLabel}.`);
+  };
+
   // Updates an order's general data (client, product spec, value, quantity, insumos) —
   // reachable from the Panel de Control table, the CRM purchase history, and the order
   // detail modal. If Inventory was already deducted for this order, only the delta in
@@ -743,6 +761,7 @@ export default function App() {
       paymentMethod,
       amountPaid: totalSpent,
       date: 'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
       itemsCount: entries.length,
       profitAllocated: true,
       isExpense: true,
@@ -968,6 +987,7 @@ export default function App() {
               onUpdatePaymentStatus={handleUpdatePaymentStatus}
               onRequestPayment={handleRequestPayment}
               onEditOrder={handleEditOrder}
+              onTransferCash={handleTransferCash}
               searchTerm={globalSearchTerm}
             />
           )}
@@ -1021,7 +1041,15 @@ export default function App() {
           )}
 
           {currentScreen === 'reports' && (
-            <ReportsView onBackToDashboard={() => setCurrentScreen('dashboard')} />
+            <ReportsView
+              orders={orders}
+              clients={clients}
+              fixedAssets={fixedAssets}
+              inventory={inventory}
+              cashBalance={cashBalance}
+              netProfit={netProfit}
+              onBackToDashboard={() => setCurrentScreen('dashboard')}
+            />
           )}
         </main>
       </div>

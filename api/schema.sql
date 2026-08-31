@@ -26,6 +26,10 @@ CREATE TABLE IF NOT EXISTS orders (
   status VARCHAR(32) NOT NULL,
   payment_status VARCHAR(32) NOT NULL,
   date_label VARCHAR(64) NOT NULL,
+  -- Fecha real (ISO 8601, ej. 2026-08-31T15:04:00.000Z) usada por los gráficos de
+  -- Informes. date_label de arriba es solo un texto para mostrar ("Hoy, 10:45 AM"),
+  -- no sirve para ubicar la orden en el tiempo.
+  created_at VARCHAR(32) NULL,
   items_count INT NOT NULL DEFAULT 1,
   bom_components JSON NULL,
   products JSON NULL,
@@ -38,6 +42,13 @@ CREATE TABLE IF NOT EXISTS orders (
   purchased_items JSON NULL,
   sort_order INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- IMPORTANTE si ya habías ejecutado este archivo antes (la tabla `orders` ya
+-- existía sin esta columna): esta línea se la agrega. Si acabas de crear la
+-- tabla arriba, no pasa nada — la columna ya está ahí y esto no la duplica.
+-- Ejecútala ANTES de subir el código nuevo, o guardar cambios en la aplicación
+-- empezará a fallar.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id VARCHAR(64) NOT NULL PRIMARY KEY,

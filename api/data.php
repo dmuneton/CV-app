@@ -89,6 +89,7 @@ function map_order_out(array $r): array {
     'profitAllocated' => (bool)$r['profit_allocated'],
     'isExpense' => (bool)$r['is_expense'],
   ];
+  if (!empty($r['created_at'])) $out['createdAt'] = $r['created_at'];
   if ($r['bom_components'] !== null) $out['bomComponents'] = json_decode($r['bom_components'], true);
   if ($r['products'] !== null) $out['products'] = json_decode($r['products'], true);
   if ($r['payment_method'] !== null) $out['paymentMethod'] = $r['payment_method'];
@@ -226,11 +227,11 @@ function replace_collection(PDO $pdo, string $table, array $items, string $inser
 function insert_order(PDO $pdo, array $o, int $index): void {
   $stmt = $pdo->prepare(
     'INSERT INTO orders
-      (id, order_id, client, product_spec, value, status, payment_status, date_label, items_count,
+      (id, order_id, client, product_spec, value, status, payment_status, date_label, created_at, items_count,
        bom_components, products, inventory_deducted, payment_method, amount_paid, profit_allocated,
        delivery_address, is_expense, purchased_items, sort_order)
      VALUES
-      (:id, :order_id, :client, :product_spec, :value, :status, :payment_status, :date_label, :items_count,
+      (:id, :order_id, :client, :product_spec, :value, :status, :payment_status, :date_label, :created_at, :items_count,
        :bom_components, :products, :inventory_deducted, :payment_method, :amount_paid, :profit_allocated,
        :delivery_address, :is_expense, :purchased_items, :sort_order)'
   );
@@ -243,6 +244,7 @@ function insert_order(PDO $pdo, array $o, int $index): void {
     ':status' => $o['status'] ?? 'Pendiente',
     ':payment_status' => $o['paymentStatus'] ?? 'Pendiente',
     ':date_label' => $o['date'] ?? '',
+    ':created_at' => $o['createdAt'] ?? null,
     ':items_count' => $o['itemsCount'] ?? 1,
     ':bom_components' => isset($o['bomComponents']) ? json_encode($o['bomComponents'], JSON_UNESCAPED_UNICODE) : null,
     ':products' => isset($o['products']) ? json_encode($o['products'], JSON_UNESCAPED_UNICODE) : null,

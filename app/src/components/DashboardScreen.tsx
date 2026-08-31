@@ -3,6 +3,7 @@ import { OrderItem, ScreenType, ClientProfile, InventoryItem } from '../types';
 import { OrderSummaryModal } from './modals/OrderSummaryModal';
 import { EditOrderModal } from './modals/EditOrderModal';
 import { PaymentActionMode } from './modals/PaymentMethodModal';
+import { TransferCashModal } from './modals/TransferCashModal';
 
 interface DashboardScreenProps {
   orders: OrderItem[];
@@ -17,6 +18,7 @@ interface DashboardScreenProps {
   onUpdatePaymentStatus?: (orderId: string, newPaymentStatus: OrderItem['paymentStatus']) => void;
   onRequestPayment?: (orderId: string, mode: PaymentActionMode) => void;
   onEditOrder?: (order: OrderItem) => void;
+  onTransferCash?: (from: 'efectivo' | 'banco', to: 'efectivo' | 'banco', amount: number) => void;
   searchTerm?: string;
 }
 
@@ -32,11 +34,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onUpdatePaymentStatus,
   onRequestPayment,
   onEditOrder,
+  onTransferCash,
   searchTerm = ''
 }) => {
+  const [isTransferCashOpen, setIsTransferCashOpen] = useState(false);
   // Stock Crítico: same rule as Gestión de Inventario — alerts only once Stock Actual
   // reaches (or drops below) Stock Mínimo — so this card always matches that section.
   const criticalStockCount = inventory.filter((item) => !item.isArchived && item.stock <= item.minStock).length;
+
+  // Prod. Pendiente: órdenes de cliente (no compras de insumos) que todavía están en
+  // producción o cuyo pago no se ha completado — Pendiente/En Producción por estado de
+  // producción, o Abono por estado de pago.
+  const pendingProdCount = orders.filter(
+    (o) =>
+      !o.isExpense &&
+      (o.status === 'Pendiente' || o.status === 'En Producción' || o.paymentStatus === 'Abono')
+  ).length;
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderToEdit, setOrderToEdit] = useState<OrderItem | null>(null);
@@ -104,7 +117,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Cash Balance */}
         <div
           id="kpi-cash-balance"
-          className="bg-white border border-[#c1c8c2] p-5 rounded-xl flex flex-col justify-between hover:shadow-[0px_4px_12px_rgba(27,67,50,0.08)] transition-all"
+          onClick={() => onTransferCash && setIsTransferCashOpen(true)}
+          title={onTransferCash ? 'Pasar dinero entre Efectivo y Banco' : undefined}
+          className={`bg-white border border-[#c1c8c2] p-5 rounded-xl flex flex-col justify-between hover:shadow-[0px_4px_12px_rgba(27,67,50,0.08)] transition-all ${
+            onTransferCash ? 'cursor-pointer' : ''
+          }`}
         >
           <div className="flex justify-between items-start mb-2">
             <span className="font-label-caps text-xs text-[#414844]">Saldo en Caja</span>
@@ -159,9 +176,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div className="flex items-baseline gap-2 justify-end">
             <span className="font-headline text-3xl font-bold text-[#5f2f00] font-numeric-data">
-              45
+              {pendingProdCount}
             </span>
-            <span className="text-sm font-medium text-[#6f3800]">lotes</span>
+            <span className="text-sm font-medium text-[#6f3800]">
+              {pendingProdCount === 1 ? 'orden' : 'órdenes'}
+            </span>
           </div>
         </div>
 
@@ -502,6 +521,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           onEditOrder && onEditOrder(updated);
           setOrderToEdit(null);
         }}
+      />
+
+      {/* Transfer Cash Modal — pasar dinero entre Efectivo y Banco */}
+      <TransferCashModal
+        isOpen={isTransferCashOpen}
+        cashBalance={cashBalance}
+        onClose={() => setIsTransferCashOpen(false)}
+        onConfirm={(from, to, amount) => onTransferCash && onTransferCash(from, to, amount)}
       />
     </div>
   );

@@ -30,6 +30,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, o
       status,
       paymentStatus: 'Pendiente',
       date: 'Justo ahora',
+      createdAt: new Date().toISOString(),
       itemsCount: Number(itemsCount),
       deliveryAddress: deliveryAddress.trim() || undefined
     };

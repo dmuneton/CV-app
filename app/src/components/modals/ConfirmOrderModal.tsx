@@ -145,6 +145,7 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
       status: orderStatus,
       paymentStatus: 'Pendiente',
       date: 'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
       itemsCount: totalUnits,
       // Multi-product orders carry their breakdown here — see OrderItem.products.
       // A single-product order also gets one entry, so downstream deduction/cost

@@ -20,6 +20,11 @@ export interface OrderItem {
   /** Payment status — independent from status (production). */
   paymentStatus: 'Pendiente' | 'Abono' | 'Pagado';
   date: string;
+  /** Real timestamp (ISO 8601) set automatically when the order is created — used for
+   *  charts and anything that needs to place the order on an actual calendar, since
+   *  `date` above is just a display label (e.g. "Hoy, 10:45 AM") and not parseable.
+   *  Absent on orders created before this field existed. */
+  createdAt?: string;
   itemsCount: number;
   bomComponents?: BOMComponent[];
   /** Present when this order bundles more than one product (via "Añadir Producto" in

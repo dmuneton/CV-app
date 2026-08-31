@@ -1,20 +1,32 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Creatividad Verde — Dashboard (CV-app)
 
-# Run and deploy your AI Studio app
+Este repositorio tiene dos partes:
 
-This contains everything you need to run your app locally.
+- **`app/`** — el código fuente del proyecto (React + Vite + TypeScript). Aquí es donde se
+  hacen los cambios y las mejoras.
+- **Raíz del repositorio** (`index.html` + `assets/`) — la versión ya compilada, lista para
+  servirse directamente como sitio estático. Esto es lo que Hostinger toma cuando se conecta
+  por Git al subdominio `crm.creatividadverde.com`.
 
-View your app in AI Studio: https://ai.studio/apps/1dafe39a-6ea9-4f37-8c2f-9f53e5d0f764
+La raíz se actualiza copiando el resultado de compilar `app/` — no se edita a mano.
 
-## Run Locally
+## Desarrollo local
 
-**Prerequisites:**  Node.js
+**Requisitos:** Node.js
 
+```
+cd app
+npm install
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Generar la versión para producción (lo que sube a Hostinger)
+
+```
+cd app
+npm run build
+```
+
+Esto genera `app/dist/`. Su contenido (`index.html` + `assets/`) se copia a la raíz del
+repositorio y se sube a GitHub — así, cuando Hostinger descarga la rama `main`, ya encuentra
+la página lista para funcionar en `crm.creatividadverde.com/`.

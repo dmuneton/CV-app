@@ -47,15 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Brand Header */}
-        <div className="mb-8 px-2 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#c1ecd4] flex items-center justify-center text-[#012d1d] shadow-sm">
-            <span className="material-symbols-outlined fill-1 text-2xl">eco</span>
-          </div>
-          <div>
-            <h1 className="font-headline font-bold text-lg text-[#012d1d] leading-tight tracking-tight">
-              Creatividad Verde
-            </h1>
-          </div>
+        <div className="mb-8 px-2 flex items-center">
+          <img src="/logo.png" alt="Creatividad Verde" className="w-44 h-auto" />
         </div>
 
         {/* Navigation Links */}
@@ -90,28 +83,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
-
-        {/* User Profile Footer */}
-        <div className="mt-auto pt-4 border-t border-[#c1c8c2] flex items-center justify-between px-2">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#1b4332] text-[#c1ecd4] flex items-center justify-center font-bold text-xs border border-[#c1c8c2] shadow-xs">
-              AD
-            </div>
-            <div className="flex flex-col overflow-hidden">
-              <span className="font-label-caps text-[11px] text-[#161d1f] font-semibold truncate">
-                Administrador
-              </span>
-            </div>
-          </div>
-          <button
-            id="sidebar-quick-settings-btn"
-            onClick={() => onNavigate('reports')}
-            title="Configuración e Informes"
-            className="text-[#717973] hover:text-[#012d1d] p-1 rounded-md hover:bg-[#e2e9ec] transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">settings</span>
-          </button>
-        </div>
       </aside>
     </>
   );

@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS orders (
   amount_paid DECIMAL(14,2) NULL,
   profit_allocated TINYINT(1) NOT NULL DEFAULT 0,
   delivery_address VARCHAR(255) NULL,
+  -- Fecha de Entrega elegida al confirmar la orden ("YYYY-MM-DD", solo para mostrar).
+  delivery_date VARCHAR(16) NULL,
   is_expense TINYINT(1) NOT NULL DEFAULT 0,
   purchased_items JSON NULL,
   sort_order INT NOT NULL DEFAULT 0
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Ejecútala ANTES de subir el código nuevo, o guardar cambios en la aplicación
 -- empezará a fallar.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date VARCHAR(16) NULL;
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id VARCHAR(64) NOT NULL PRIMARY KEY,

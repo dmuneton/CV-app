@@ -44,11 +44,23 @@ export function capSlices(slices: ProductSalesSlice[], max: number): ProductSale
 
 export type SalesGranularity = 'month' | 'quarter' | 'year';
 
+export const REPORTS_START_YEAR = 2023;
+
 export interface SalesPeriodPoint {
   key: string;
   label: string;
   count: number;
 }
+
+// Qué tanto abarca el gráfico y cómo se parte en puntos:
+// - month:   un mes puntual de un año -> un punto por día de ese mes.
+// - quarter: un trimestre puntual de un año -> un punto por mes de ese trimestre.
+// - year, mode 'all':    todo el histórico (desde REPORTS_START_YEAR) -> un punto por año.
+// - year, mode 'single': un año puntual -> un punto por mes de ese año.
+export type SalesScope =
+  | { granularity: 'month'; month: number; year: number } // month: 0-11
+  | { granularity: 'quarter'; quarter: number; year: number } // quarter: 0-3
+  | { granularity: 'year'; mode: 'all' } | { granularity: 'year'; mode: 'single'; year: number };
 
 // La fecha real de una orden: su propio createdAt si existe, o "hoy" si no —
 // las órdenes creadas antes de que existiera este campo se ubican en el periodo
@@ -63,39 +75,55 @@ const getOrderDate = (o: OrderItem): Date => {
 
 const MONTH_LABEL = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+// Nombres completos — para los selectores de mes en la UI (MONTH_LABEL de arriba
+// son las versiones cortas que usa el propio gráfico en sus etiquetas).
+export const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const countOnDay = (dates: Date[], y: number, m: number, d: number) =>
+  dates.filter((dt) => dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d).length;
+
+const countInMonth = (dates: Date[], y: number, m: number) =>
+  dates.filter((dt) => dt.getFullYear() === y && dt.getMonth() === m).length;
+
+const countInYear = (dates: Date[], y: number) => dates.filter((dt) => dt.getFullYear() === y).length;
+
 /**
- * Cantidad de órdenes (no compras de insumos) por periodo, desde `startYear`
- * hasta el periodo actual — nunca se listan periodos futuros.
+ * Cantidad de órdenes (no compras de insumos) por punto, según el alcance elegido
+ * (`scope`) — nunca se listan periodos futuros.
  */
-export function getSalesOverTime(
-  orders: OrderItem[],
-  granularity: SalesGranularity,
-  startYear = 2023
-): SalesPeriodPoint[] {
+export function getSalesOverTime(orders: OrderItem[], scope: SalesScope): SalesPeriodPoint[] {
   const now = new Date();
   const dates = orders.filter((o) => !o.isExpense).map(getOrderDate);
   const points: SalesPeriodPoint[] = [];
 
-  if (granularity === 'year') {
-    for (let y = startYear; y <= now.getFullYear(); y++) {
-      const count = dates.filter((d) => d.getFullYear() === y).length;
-      points.push({ key: String(y), label: String(y), count });
+  if (scope.granularity === 'month') {
+    const { year: y, month: m } = scope;
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const isCurrentMonth = y === now.getFullYear() && m === now.getMonth();
+    const lastDay = isCurrentMonth ? now.getDate() : y > now.getFullYear() || (y === now.getFullYear() && m > now.getMonth()) ? 0 : daysInMonth;
+    for (let d = 1; d <= lastDay; d++) {
+      points.push({ key: `${y}-${m}-${d}`, label: String(d), count: countOnDay(dates, y, m, d) });
     }
-  } else if (granularity === 'quarter') {
-    for (let y = startYear; y <= now.getFullYear(); y++) {
-      const lastQ = y === now.getFullYear() ? Math.floor(now.getMonth() / 3) : 3;
-      for (let q = 0; q <= lastQ; q++) {
-        const count = dates.filter((d) => d.getFullYear() === y && Math.floor(d.getMonth() / 3) === q).length;
-        points.push({ key: `${y}-T${q + 1}`, label: `T${q + 1} ${y}`, count });
-      }
+  } else if (scope.granularity === 'quarter') {
+    const { year: y, quarter: q } = scope;
+    const isFutureYear = y > now.getFullYear();
+    for (let m = q * 3; m <= q * 3 + 2; m++) {
+      if (isFutureYear || (y === now.getFullYear() && m > now.getMonth())) break;
+      points.push({ key: `${y}-${m}`, label: `${MONTH_LABEL[m]} ${y}`, count: countInMonth(dates, y, m) });
+    }
+  } else if (scope.mode === 'all') {
+    for (let y = REPORTS_START_YEAR; y <= now.getFullYear(); y++) {
+      points.push({ key: String(y), label: String(y), count: countInYear(dates, y) });
     }
   } else {
-    for (let y = startYear; y <= now.getFullYear(); y++) {
-      const lastM = y === now.getFullYear() ? now.getMonth() : 11;
-      for (let m = 0; m <= lastM; m++) {
-        const count = dates.filter((d) => d.getFullYear() === y && d.getMonth() === m).length;
-        points.push({ key: `${y}-${m}`, label: `${MONTH_LABEL[m]} ${String(y).slice(2)}`, count });
-      }
+    const y = scope.year;
+    const isFutureYear = y > now.getFullYear();
+    const lastM = isFutureYear ? -1 : y === now.getFullYear() ? now.getMonth() : 11;
+    for (let m = 0; m <= lastM; m++) {
+      points.push({ key: `${y}-${m}`, label: `${MONTH_LABEL[m]} ${y}`, count: countInMonth(dates, y, m) });
     }
   }
 

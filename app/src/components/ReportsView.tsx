@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { OrderItem, ClientProfile, FixedAsset, InventoryItem } from '../types';
 import { getClientOrders, getTotalSalesAcrossClients } from '../utils/clientPurchases';
-import { getProductSales, capSlices, getSalesOverTime, SalesGranularity } from '../utils/reportsData';
+import {
+  getProductSales,
+  capSlices,
+  getSalesOverTime,
+  SalesGranularity,
+  SalesScope,
+  REPORTS_START_YEAR,
+  MONTH_NAMES
+} from '../utils/reportsData';
 import { ProductSalesPieChart } from './charts/ProductSalesPieChart';
 import { SalesOverTimeLineChart } from './charts/SalesOverTimeLineChart';
 
@@ -24,10 +32,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   netProfit,
   onBackToDashboard
 }) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
   const [granularity, setGranularity] = useState<SalesGranularity>('month');
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+  const [selectedQuarter, setSelectedQuarter] = useState<number>(Math.floor(currentMonth / 3));
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [yearMode, setYearMode] = useState<'all' | 'single'>('all');
+
+  const yearOptions = Array.from(
+    { length: currentYear - REPORTS_START_YEAR + 1 },
+    (_, i) => currentYear - i
+  );
+
+  // Nunca dejar seleccionado un mes/trimestre futuro cuando el año elegido es el actual.
+  const isSelectedYearCurrent = selectedYear === currentYear;
+  const maxMonth = isSelectedYearCurrent ? currentMonth : 11;
+  const maxQuarter = isSelectedYearCurrent ? Math.floor(currentMonth / 3) : 3;
+  const effectiveMonth = Math.min(selectedMonth, maxMonth);
+  const effectiveQuarter = Math.min(selectedQuarter, maxQuarter);
+
+  const scope: SalesScope =
+    granularity === 'month'
+      ? { granularity: 'month', month: effectiveMonth, year: selectedYear }
+      : granularity === 'quarter'
+      ? { granularity: 'quarter', quarter: effectiveQuarter, year: selectedYear }
+      : yearMode === 'all'
+      ? { granularity: 'year', mode: 'all' }
+      : { granularity: 'year', mode: 'single', year: selectedYear };
 
   const productSales = capSlices(getProductSales(orders), 6);
-  const salesOverTime = getSalesOverTime(orders, granularity, 2023);
+  const salesOverTime = getSalesOverTime(orders, scope);
 
   // Ventas: órdenes de cliente (no compras de insumos) que ya llegaron a Terminado o Enviado.
   const ventasCount = orders.filter(
@@ -220,34 +257,130 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
         {/* Ventas en el Tiempo */}
         <div className="bg-white border border-[#c1c8c2] rounded-xl p-5 shadow-2xs">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h3 className="font-headline text-lg font-bold text-[#012d1d]">Ventas en el Tiempo</h3>
-            {/* Filtro de granularidad — una sola fila, encima del gráfico */}
-            <div className="flex items-center bg-[#eef5f7] p-0.5 rounded-lg border border-[#c1c8c2]">
-              {(
-                [
-                  { value: 'month', label: 'Mes' },
-                  { value: 'quarter', label: 'Trimestre' },
-                  { value: 'year', label: 'Año' }
-                ] as { value: SalesGranularity; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setGranularity(opt.value)}
-                  className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                    granularity === opt.value
-                      ? 'bg-white text-[#012d1d] shadow-2xs'
-                      : 'text-[#414844] hover:text-[#012d1d]'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            {/* Filtros — una sola fila, encima del gráfico */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center bg-[#eef5f7] p-0.5 rounded-lg border border-[#c1c8c2]">
+                {(
+                  [
+                    { value: 'month', label: 'Mes' },
+                    { value: 'quarter', label: 'Trimestre' },
+                    { value: 'year', label: 'Año' }
+                  ] as { value: SalesGranularity; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setGranularity(opt.value)}
+                    className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                      granularity === opt.value
+                        ? 'bg-white text-[#012d1d] shadow-2xs'
+                        : 'text-[#414844] hover:text-[#012d1d]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mes: elegir mes + año */}
+              {granularity === 'month' && (
+                <>
+                  <select
+                    value={effectiveMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    className="bg-[#f4fafd] border border-[#c1c8c2] text-[#161d1f] text-[11px] font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                  >
+                    {MONTH_NAMES.map((name, idx) => (
+                      <option key={name} value={idx} disabled={isSelectedYearCurrent && idx > currentMonth}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="bg-[#f4fafd] border border-[#c1c8c2] text-[#161d1f] text-[11px] font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {/* Trimestre: elegir trimestre + año */}
+              {granularity === 'quarter' && (
+                <>
+                  <select
+                    value={effectiveQuarter}
+                    onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                    className="bg-[#f4fafd] border border-[#c1c8c2] text-[#161d1f] text-[11px] font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                  >
+                    {[0, 1, 2, 3].map((q) => (
+                      <option key={q} value={q} disabled={isSelectedYearCurrent && q > maxQuarter}>
+                        Trimestre {q + 1}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="bg-[#f4fafd] border border-[#c1c8c2] text-[#161d1f] text-[11px] font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                  >
+                    {yearOptions.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {/* Año: todo el histórico, o un año en particular */}
+              {granularity === 'year' && (
+                <>
+                  <div className="flex items-center bg-[#eef5f7] p-0.5 rounded-lg border border-[#c1c8c2]">
+                    <button
+                      type="button"
+                      onClick={() => setYearMode('all')}
+                      className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        yearMode === 'all' ? 'bg-white text-[#012d1d] shadow-2xs' : 'text-[#414844] hover:text-[#012d1d]'
+                      }`}
+                    >
+                      Todo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setYearMode('single')}
+                      className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        yearMode === 'single' ? 'bg-white text-[#012d1d] shadow-2xs' : 'text-[#414844] hover:text-[#012d1d]'
+                      }`}
+                    >
+                      Un año
+                    </button>
+                  </div>
+                  {yearMode === 'single' && (
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      className="bg-[#f4fafd] border border-[#c1c8c2] text-[#161d1f] text-[11px] font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                    >
+                      {yearOptions.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <p className="text-xs text-[#717973] mb-4">
-            Cantidad de órdenes registradas por periodo, desde 2023.
+            {granularity === 'month' && `Órdenes por día — ${MONTH_NAMES[effectiveMonth]} ${selectedYear}.`}
+            {granularity === 'quarter' && `Órdenes por mes — Trimestre ${effectiveQuarter + 1} de ${selectedYear}.`}
+            {granularity === 'year' &&
+              (yearMode === 'all'
+                ? `Órdenes por año, desde ${REPORTS_START_YEAR}.`
+                : `Órdenes por mes — ${selectedYear}.`)}
           </p>
           <SalesOverTimeLineChart points={salesOverTime} />
         </div>

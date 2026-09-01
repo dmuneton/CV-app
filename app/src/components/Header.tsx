@@ -7,7 +7,6 @@ interface HeaderProps {
   onSearchChange: (value: string) => void;
   notificationsCount?: number;
   onOpenNotifications?: () => void;
-  onOpenSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,8 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchTerm,
   onSearchChange,
   notificationsCount = 3,
-  onOpenNotifications,
-  onOpenSettings
+  onOpenNotifications
 }) => {
   return (
     <header
@@ -72,14 +70,6 @@ export const Header: React.FC<HeaderProps> = ({
             {notificationsCount > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ba1a1a]" />
             )}
-          </button>
-          <button
-            id="btn-quick-settings"
-            onClick={onOpenSettings}
-            className="p-2 rounded-lg hover:text-[#012d1d] hover:bg-[#e2e9ec] transition-colors cursor-pointer"
-            title="Informes y Ajustes"
-          >
-            <span className="material-symbols-outlined text-[20px]">settings</span>
           </button>
         </div>
 

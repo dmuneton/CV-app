@@ -965,7 +965,6 @@ export default function App() {
           onNewOrder={() => setCurrentScreen('product-engineering')}
           searchTerm={globalSearchTerm}
           onSearchChange={setGlobalSearchTerm}
-          onOpenSettings={() => setCurrentScreen('reports')}
           onOpenNotifications={() => {
             showToast(`🔔 Tienes 12 alertas de inventario bajo y 45 lotes en producción.`);
           }}

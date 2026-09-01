@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BOMComponent, ClientProfile, OrderItem, OrderProductLine } from '../../types';
+import { toLocalDateInputValue, dateInputToIsoNoon } from '../../utils/dateInput';
 
 // One product coming from Órdenes — the main recipe plus any block added via
 // "Añadir Producto" that has at least one insumo.
@@ -35,6 +36,7 @@ interface OrderLineDraft {
   salePrice: number;
 }
 
+
 export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
   isOpen,
   onClose,
@@ -44,6 +46,8 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
 }) => {
   const [lines, setLines] = useState<OrderLineDraft[]>([]);
   const [orderStatus, setOrderStatus] = useState<'Pendiente' | 'En Producción' | 'Terminado' | 'Enviado'>('Pendiente');
+  const [orderDate, setOrderDate] = useState<string>('');
+  const [deliveryDate, setDeliveryDate] = useState<string>('');
 
   // Client selection mode: 'existing' | 'new'
   const [clientMode, setClientMode] = useState<'existing' | 'new'>(
@@ -94,6 +98,13 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
         }))
       );
       setOrderStatus('Pendiente');
+      const today = new Date();
+      setOrderDate(toLocalDateInputValue(today));
+      // Sugerencia inicial: una semana después de la orden — el usuario la puede
+      // cambiar libremente.
+      const suggestedDelivery = new Date(today);
+      suggestedDelivery.setDate(suggestedDelivery.getDate() + 7);
+      setDeliveryDate(toLocalDateInputValue(suggestedDelivery));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -136,6 +147,18 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
       .map((l) => `${l.productName} (x${l.itemsCount} un.)`)
       .join(' + ');
 
+    // "date" is just a display label — it should say "Hoy, HH:MM" only when the
+    // chosen order date really is today; otherwise show the actual date picked.
+    const today = toLocalDateInputValue(new Date());
+    const dateLabel =
+      orderDate === today
+        ? 'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : new Date(`${orderDate}T12:00:00`).toLocaleDateString('es-CO', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+          });
+
     const newOrder: OrderItem = {
       id: `ord-${Date.now()}`,
       orderId: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -144,8 +167,10 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
       value: totalSale,
       status: orderStatus,
       paymentStatus: 'Pendiente',
-      date: 'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      createdAt: new Date().toISOString(),
+      date: dateLabel,
+      // Fecha real elegida por el usuario — es lo que alimenta el gráfico de
+      // Ventas en el Tiempo (ver reportsData.ts).
+      createdAt: dateInputToIsoNoon(orderDate || today),
       itemsCount: totalUnits,
       // Multi-product orders carry their breakdown here — see OrderItem.products.
       // A single-product order also gets one entry, so downstream deduction/cost
@@ -153,6 +178,7 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
       products: productLines,
       inventoryDeducted: false,
       deliveryAddress: clientAddress.trim() || undefined,
+      deliveryDate: deliveryDate || undefined,
     };
 
     const matchedClient = clientMode === 'existing' ? existingClients.find((c) => c.id === selectedClientId) : undefined;
@@ -522,6 +548,32 @@ export const ConfirmOrderModal: React.FC<ConfirmOrderModalProps> = ({
                   onChange={(e) => setClientAddress(e.target.value)}
                   placeholder="Ej. Calle 100 # 15-20, Bogotá"
                   className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3 py-2 text-xs text-[#161d1f] focus:outline-none focus:border-[#0e6c4a]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-caps text-[10px] text-[#414844] font-semibold mb-1">
+                  Fecha de la Orden
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3 py-2 text-xs font-numeric-data text-[#161d1f] focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-caps text-[10px] text-[#414844] font-semibold mb-1">
+                  Fecha de Entrega
+                </label>
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  min={orderDate || undefined}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3 py-2 text-xs font-numeric-data text-[#161d1f] focus:outline-none focus:border-[#0e6c4a] cursor-pointer"
                 />
               </div>
             </div>

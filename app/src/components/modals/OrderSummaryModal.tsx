@@ -371,14 +371,31 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
                 </span>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-[#c1c8c2]/50">
-              <span className="block text-[10px] font-label-caps text-[#717973] font-semibold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[13px] text-[#0e6c4a]">location_on</span>
-                <span>Dirección de Entrega:</span>
-              </span>
-              <span className="text-xs text-[#414844]">
-                {order.deliveryAddress || client?.address || 'No registrada'}
-              </span>
+            <div className="mt-3 pt-3 border-t border-[#c1c8c2]/50 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <span className="block text-[10px] font-label-caps text-[#717973] font-semibold flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[13px] text-[#0e6c4a]">location_on</span>
+                  <span>Dirección de Entrega:</span>
+                </span>
+                <span className="text-xs text-[#414844]">
+                  {order.deliveryAddress || client?.address || 'No registrada'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] font-label-caps text-[#717973] font-semibold flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[13px] text-[#0e6c4a]">event</span>
+                  <span>Fecha de Entrega:</span>
+                </span>
+                <span className="text-xs text-[#414844]">
+                  {order.deliveryDate
+                    ? new Date(`${order.deliveryDate}T12:00:00`).toLocaleDateString('es-CO', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    : 'No definida'}
+                </span>
+              </div>
             </div>
           </div>
 

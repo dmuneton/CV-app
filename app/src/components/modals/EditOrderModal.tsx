@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { OrderItem, BOMComponent, InventoryItem } from '../../types';
+import { isoToLocalDateInputValue, dateInputToIsoNoon } from '../../utils/dateInput';
 
 interface EditOrderModalProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
   const [value, setValue] = useState<number>(0);
   const [itemsCount, setItemsCount] = useState<number>(1);
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [orderDate, setOrderDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [bomComponents, setBomComponents] = useState<BOMComponent[]>([]);
   const [isAddingComponent, setIsAddingComponent] = useState(false);
   const [newCompName, setNewCompName] = useState('');
@@ -35,6 +38,8 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
       setValue(order.value);
       setItemsCount(order.itemsCount || 1);
       setDeliveryAddress(order.deliveryAddress || '');
+      setOrderDate(isoToLocalDateInputValue(order.createdAt));
+      setDeliveryDate(order.deliveryDate || '');
       // Deep copy so edits here don't mutate the order until Guardar Cambios is pressed
       setBomComponents(order.bomComponents ? JSON.parse(JSON.stringify(order.bomComponents)) : []);
       setIsAddingComponent(false);
@@ -118,6 +123,21 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
     e.preventDefault();
     if (!client.trim() || !productSpec.trim()) return;
 
+    // Keep the "date" display label in sync whenever the order date actually changed —
+    // otherwise an order re-dated to last month would still show "Hoy, HH:MM".
+    const previousOrderDate = isoToLocalDateInputValue(order.createdAt);
+    const dateChanged = orderDate !== previousOrderDate;
+    const today = isoToLocalDateInputValue(undefined);
+    const dateLabel = !dateChanged
+      ? order.date
+      : orderDate === today
+      ? 'Hoy, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : new Date(`${orderDate}T12:00:00`).toLocaleDateString('es-CO', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+
     onSave({
       ...order,
       client: client.trim(),
@@ -125,6 +145,9 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
       value: Number(value),
       itemsCount: Number(itemsCount),
       deliveryAddress: deliveryAddress.trim() || undefined,
+      date: dateLabel,
+      createdAt: dateInputToIsoNoon(orderDate),
+      deliveryDate: deliveryDate || undefined,
       // Save the list whenever there's something in it now — covers both edits to an
       // existing list and insumos added here for the first time.
       bomComponents: bomComponents.length > 0 ? bomComponents : order.bomComponents
@@ -191,6 +214,33 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
               onChange={(e) => setDeliveryAddress(e.target.value)}
               className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3.5 py-2 text-sm text-[#161d1f] focus:outline-none focus:border-[#0284c7]"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-label-caps text-xs text-[#414844] mb-1">
+                Fecha de la Orden
+              </label>
+              <input
+                type="date"
+                required
+                value={orderDate}
+                onChange={(e) => setOrderDate(e.target.value)}
+                className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3.5 py-2 text-sm font-numeric-data text-[#161d1f] focus:outline-none focus:border-[#0284c7] cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="block font-label-caps text-xs text-[#414844] mb-1">
+                Fecha de Entrega
+              </label>
+              <input
+                type="date"
+                value={deliveryDate}
+                min={orderDate || undefined}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                className="w-full bg-[#f4fafd] border border-[#c1c8c2] rounded-lg px-3.5 py-2 text-sm font-numeric-data text-[#161d1f] focus:outline-none focus:border-[#0284c7] cursor-pointer"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

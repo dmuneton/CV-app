@@ -7,17 +7,19 @@ pestaña abierta — al recargar, vuelve a los datos de ejemplo.
 
 ## ⚠️ Si ya tenías la base de datos conectada (actualización)
 
-Esta versión agrega una columna nueva (`created_at`, para los gráficos de
-Informes). **Antes de actualizar el sitio en Hostinger**, entra a phpMyAdmin →
-pestaña SQL, y ejecuta:
+Esta versión agrega columnas nuevas a `orders` (`created_at`, para los gráficos
+de Informes; `delivery_date`, para la Fecha de Entrega al confirmar una orden).
+**Antes de actualizar el sitio en Hostinger**, entra a phpMyAdmin → pestaña
+SQL, y ejecuta:
 
 ```sql
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date VARCHAR(16) NULL;
 ```
 
-Si no la ejecutas primero, guardar cambios en la aplicación empezará a fallar
-(el error se vería como "No se pudo guardar" en la aplicación). Este mismo
-comando ya viene incluido en [schema.sql](schema.sql), así que si vuelves a
+Si no las ejecutas primero, guardar cambios en la aplicación empezará a fallar
+(el error se vería como "No se pudo guardar" en la aplicación). Estos mismos
+comandos ya vienen incluidos en [schema.sql](schema.sql), así que si vuelves a
 pegar y ejecutar todo ese archivo también queda resuelto.
 
 ## Configuración (una sola vez)

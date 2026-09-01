@@ -95,6 +95,7 @@ function map_order_out(array $r): array {
   if ($r['payment_method'] !== null) $out['paymentMethod'] = $r['payment_method'];
   if ($r['amount_paid'] !== null) $out['amountPaid'] = (float)$r['amount_paid'];
   if ($r['delivery_address'] !== null) $out['deliveryAddress'] = $r['delivery_address'];
+  if (!empty($r['delivery_date'])) $out['deliveryDate'] = $r['delivery_date'];
   if ($r['purchased_items'] !== null) $out['purchasedItems'] = json_decode($r['purchased_items'], true);
   return $out;
 }
@@ -229,11 +230,11 @@ function insert_order(PDO $pdo, array $o, int $index): void {
     'INSERT INTO orders
       (id, order_id, client, product_spec, value, status, payment_status, date_label, created_at, items_count,
        bom_components, products, inventory_deducted, payment_method, amount_paid, profit_allocated,
-       delivery_address, is_expense, purchased_items, sort_order)
+       delivery_address, delivery_date, is_expense, purchased_items, sort_order)
      VALUES
       (:id, :order_id, :client, :product_spec, :value, :status, :payment_status, :date_label, :created_at, :items_count,
        :bom_components, :products, :inventory_deducted, :payment_method, :amount_paid, :profit_allocated,
-       :delivery_address, :is_expense, :purchased_items, :sort_order)'
+       :delivery_address, :delivery_date, :is_expense, :purchased_items, :sort_order)'
   );
   $stmt->execute([
     ':id' => $o['id'],
@@ -253,6 +254,7 @@ function insert_order(PDO $pdo, array $o, int $index): void {
     ':amount_paid' => $o['amountPaid'] ?? null,
     ':profit_allocated' => !empty($o['profitAllocated']) ? 1 : 0,
     ':delivery_address' => $o['deliveryAddress'] ?? null,
+    ':delivery_date' => $o['deliveryDate'] ?? null,
     ':is_expense' => !empty($o['isExpense']) ? 1 : 0,
     ':purchased_items' => isset($o['purchasedItems']) ? json_encode($o['purchasedItems'], JSON_UNESCAPED_UNICODE) : null,
     ':sort_order' => $index,

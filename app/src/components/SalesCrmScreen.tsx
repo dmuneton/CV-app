@@ -5,6 +5,7 @@ import { EditOrderModal } from './modals/EditOrderModal';
 import { EditClientModal } from './modals/EditClientModal';
 import { AddClientModal } from './modals/AddClientModal';
 import { ClientDetailModal } from './modals/ClientDetailModal';
+import { ConfirmDeleteModal } from './modals/ConfirmDeleteModal';
 import { PaymentActionMode } from './modals/PaymentMethodModal';
 import {
   getClientOrders,
@@ -25,7 +26,10 @@ interface SalesCrmScreenProps {
   onUpdatePaymentStatus?: (orderId: string, newPaymentStatus: OrderItem['paymentStatus']) => void;
   onRequestPayment?: (orderId: string, mode: PaymentActionMode) => void;
   onEditOrder?: (order: OrderItem) => void;
+  onDeleteOrder?: (orderId: string) => void;
   onUpdateClient?: (client: ClientProfile) => void;
+  onDeleteClient?: (clientId: string) => void;
+  onDeleteAllClients?: () => void;
 }
 
 type TierFilter = 'ALL' | ClientTier;
@@ -49,7 +53,10 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
   onUpdatePaymentStatus,
   onRequestPayment,
   onEditOrder,
-  onUpdateClient
+  onDeleteOrder,
+  onUpdateClient,
+  onDeleteClient,
+  onDeleteAllClients
 }) => {
   const [selectedClientId, setSelectedClientId] = useState<string>(clients[0]?.id || 'cli-1');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -57,6 +64,7 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
   const [clientToEdit, setClientToEdit] = useState<ClientProfile | null>(null);
   const [clientForDetailModal, setClientForDetailModal] = useState<ClientProfile | null>(null);
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState<boolean>(false);
+  const [confirmingDeleteAllClients, setConfirmingDeleteAllClients] = useState<boolean>(false);
 
   // Filters and sorting for the client grid
   const [gridSearch, setGridSearch] = useState<string>('');
@@ -228,6 +236,17 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
                 <span className="material-symbols-outlined text-[16px]">person_add</span>
                 <span>Nuevo Cliente</span>
               </button>
+              {onDeleteAllClients && clients.length > 0 && (
+                <button
+                  id="btn-delete-all-clients"
+                  onClick={() => setConfirmingDeleteAllClients(true)}
+                  title="Borrar todos los clientes registrados"
+                  className="flex items-center justify-center gap-1.5 bg-white border border-[#ffb4ab] text-[#ba1a1a] px-3.5 py-1.5 rounded-lg font-label-caps text-xs hover:bg-[#ffdad6]/40 transition-all cursor-pointer shadow-2xs active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                  <span>Borrar Todos</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -531,6 +550,14 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
           onEditOrder && onEditOrder(updated);
           setOrderToEdit(null);
         }}
+        onDelete={
+          onDeleteOrder
+            ? (orderId) => {
+                onDeleteOrder(orderId);
+                setOrderToEdit(null);
+              }
+            : undefined
+        }
       />
 
       {/* Edit Client Modal */}
@@ -543,6 +570,26 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
         onSave={(updated) => {
           onUpdateClient && onUpdateClient(updated);
           setClientToEdit(null);
+        }}
+        onDelete={
+          onDeleteClient
+            ? (clientId) => {
+                onDeleteClient(clientId);
+                setClientToEdit(null);
+              }
+            : undefined
+        }
+      />
+
+      {/* Confirm Delete All Clients Modal */}
+      <ConfirmDeleteModal
+        isOpen={confirmingDeleteAllClients}
+        title="¿Borrar todos los clientes?"
+        message={`Esta acción no se puede deshacer. Se eliminarán los ${clients.length} clientes registrados (las órdenes ya hechas a su nombre se mantienen en el historial, pero quedarán sin un cliente vinculado).`}
+        onClose={() => setConfirmingDeleteAllClients(false)}
+        onConfirm={() => {
+          if (onDeleteAllClients) onDeleteAllClients();
+          setConfirmingDeleteAllClients(false);
         }}
       />
 

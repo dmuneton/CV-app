@@ -4,6 +4,7 @@ import { OrderSummaryModal } from './modals/OrderSummaryModal';
 import { EditOrderModal } from './modals/EditOrderModal';
 import { PaymentActionMode } from './modals/PaymentMethodModal';
 import { TransferCashModal } from './modals/TransferCashModal';
+import { ConfirmDeleteModal } from './modals/ConfirmDeleteModal';
 
 interface DashboardScreenProps {
   orders: OrderItem[];
@@ -18,6 +19,7 @@ interface DashboardScreenProps {
   onUpdatePaymentStatus?: (orderId: string, newPaymentStatus: OrderItem['paymentStatus']) => void;
   onRequestPayment?: (orderId: string, mode: PaymentActionMode) => void;
   onEditOrder?: (order: OrderItem) => void;
+  onDeleteOrder?: (orderId: string) => void;
   onTransferCash?: (from: 'efectivo' | 'banco', to: 'efectivo' | 'banco', amount: number) => void;
   searchTerm?: string;
 }
@@ -34,10 +36,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onUpdatePaymentStatus,
   onRequestPayment,
   onEditOrder,
+  onDeleteOrder,
   onTransferCash,
   searchTerm = ''
 }) => {
   const [isTransferCashOpen, setIsTransferCashOpen] = useState(false);
+  const [expenseOrderToDelete, setExpenseOrderToDelete] = useState<OrderItem | null>(null);
   // Stock Crítico: same rule as Gestión de Inventario — alerts only once Stock Actual
   // reaches (or drops below) Stock Mínimo — so this card always matches that section.
   const criticalStockCount = inventory.filter((item) => !item.isArchived && item.stock <= item.minStock).length;
@@ -323,17 +327,30 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          <button
-                            id={`btn-order-summary-${order.id}`}
-                            type="button"
-                            onClick={() => setSelectedOrderId(order.id)}
-                            className="w-7 h-7 inline-flex items-center justify-center rounded-lg bg-[#eef5f7] hover:bg-[#a0f4c8] text-[#012d1d] hover:text-[#005236] border border-[#c1c8c2] hover:border-[#0e6c4a] transition-all cursor-pointer shadow-2xs group/btn mx-auto"
-                            title={`Ver qué se compró en ${order.orderId}`}
-                          >
-                            <span className="material-symbols-outlined text-[16px] group-hover/btn:scale-115 transition-transform">
-                              receipt_long
-                            </span>
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              id={`btn-order-summary-${order.id}`}
+                              type="button"
+                              onClick={() => setSelectedOrderId(order.id)}
+                              className="w-7 h-7 inline-flex items-center justify-center rounded-lg bg-[#eef5f7] hover:bg-[#a0f4c8] text-[#012d1d] hover:text-[#005236] border border-[#c1c8c2] hover:border-[#0e6c4a] transition-all cursor-pointer shadow-2xs group/btn"
+                              title={`Ver qué se compró en ${order.orderId}`}
+                            >
+                              <span className="material-symbols-outlined text-[16px] group-hover/btn:scale-115 transition-transform">
+                                receipt_long
+                              </span>
+                            </button>
+                            {onDeleteOrder && (
+                              <button
+                                id={`btn-delete-expense-${order.id}`}
+                                type="button"
+                                onClick={() => setExpenseOrderToDelete(order)}
+                                className="w-7 h-7 inline-flex items-center justify-center rounded-lg bg-[#eef5f7] hover:bg-[#ffdad6] text-[#717973] hover:text-[#ba1a1a] border border-[#c1c8c2] hover:border-[#ffb4ab] transition-all cursor-pointer shadow-2xs"
+                                title={`Borrar la compra ${order.orderId}`}
+                              >
+                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ) : (
@@ -521,6 +538,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           onEditOrder && onEditOrder(updated);
           setOrderToEdit(null);
         }}
+        onDelete={
+          onDeleteOrder
+            ? (orderId) => {
+                onDeleteOrder(orderId);
+                setOrderToEdit(null);
+              }
+            : undefined
+        }
       />
 
       {/* Transfer Cash Modal — pasar dinero entre Efectivo y Banco */}
@@ -529,6 +554,23 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         cashBalance={cashBalance}
         onClose={() => setIsTransferCashOpen(false)}
         onConfirm={(from, to, amount) => onTransferCash && onTransferCash(from, to, amount)}
+      />
+
+      {/* Confirm Delete Compra (CMP-) Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!expenseOrderToDelete}
+        title="¿Borrar esta compra de insumos?"
+        itemName={expenseOrderToDelete ? `${expenseOrderToDelete.orderId} — ${expenseOrderToDelete.productSpec}` : undefined}
+        message={
+          expenseOrderToDelete?.status === 'Recibido'
+            ? 'Esta acción no se puede deshacer. Esta compra ya fue marcada como "Recibido" — borrarla NO quita del inventario lo que ya se sumó, ni devuelve el dinero al Saldo en Caja; ajústalos manualmente ahí si hace falta.'
+            : 'Esta acción no se puede deshacer. El monto ya descontado del Saldo en Caja no se devuelve automáticamente; ajústalo manualmente ahí si hace falta.'
+        }
+        onClose={() => setExpenseOrderToDelete(null)}
+        onConfirm={() => {
+          if (expenseOrderToDelete && onDeleteOrder) onDeleteOrder(expenseOrderToDelete.id);
+          setExpenseOrderToDelete(null);
+        }}
       />
     </div>
   );

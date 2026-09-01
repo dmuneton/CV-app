@@ -9,6 +9,7 @@ interface EditClientModalProps {
   purchaseCount: number;
   onClose: () => void;
   onSave: (updatedClient: ClientProfile) => void;
+  onDelete?: (clientId: string) => void;
 }
 
 const TIER_LABELS: Record<ClientTier, string> = {
@@ -23,7 +24,8 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   tier,
   purchaseCount,
   onClose,
-  onSave
+  onSave,
+  onDelete
 }) => {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'Persona' | 'Empresa'>('Persona');
@@ -31,9 +33,11 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   const [phone, setPhone] = useState('');
   const [identification, setIdentification] = useState('');
   const [address, setAddress] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     if (client && isOpen) {
+      setConfirmingDelete(false);
       setName(client.name);
       setRole(client.role === 'Empresa' ? 'Empresa' : 'Persona');
       setEmail(client.email || '');
@@ -194,22 +198,70 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
             El nivel se calcula automáticamente según el número de compras y no se puede editar a mano.
           </p>
 
-          <div className="pt-4 border-t border-[#c1c8c2] flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-[#414844] hover:bg-[#eef5f7] rounded-lg transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="bg-[#012d1d] hover:bg-[#1b4332] text-white px-5 py-2 rounded-lg font-label-caps text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
-              <span>Guardar Cambios</span>
-            </button>
-          </div>
+          {confirmingDelete ? (
+            <div className="pt-4 border-t border-[#c1c8c2] space-y-3">
+              <div className="bg-[#ffdad6]/40 border border-[#ba1a1a]/30 rounded-lg p-3 space-y-1">
+                <p className="text-xs font-semibold text-[#93000a] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px]">warning</span>
+                  <span>¿Borrar definitivamente a {client.name}?</span>
+                </p>
+                <p className="text-[11px] text-[#93000a]">
+                  Esta acción no se puede deshacer. Las órdenes ya registradas a su nombre se mantienen en el historial.
+                </p>
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="px-4 py-2 text-xs font-semibold text-[#414844] hover:bg-[#eef5f7] rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onDelete) onDelete(client.id);
+                    onClose();
+                  }}
+                  className="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-5 py-2 rounded-lg font-label-caps text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete_forever</span>
+                  <span>Sí, Borrar Definitivamente</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-[#c1c8c2] flex items-center justify-between gap-3">
+              {onDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  <span>Borrar Cliente</span>
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-xs font-semibold text-[#414844] hover:bg-[#eef5f7] rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#012d1d] hover:bg-[#1b4332] text-white px-5 py-2 rounded-lg font-label-caps text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

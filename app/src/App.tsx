@@ -421,9 +421,28 @@ export default function App() {
     return { updatedInventory: updatedInv, changedCount, summary };
   };
 
+  // Consecutivo por prefijo (ORD- para órdenes de producción, CMP- para compras de
+  // insumos): toma el número más alto ya usado con ese prefijo y suma 1. Empieza en
+  // 001 la primera vez que no hay ninguna orden con ese prefijo todavía — por eso
+  // "Borrar Todos los Clientes"/borrar órdenes hace que el consecutivo pueda volver
+  // a partir limpio si de verdad se borra todo.
+  const getNextSequentialOrderId = (prefix: 'ORD' | 'CMP'): string => {
+    const used = orders
+      .map((o) => o.orderId)
+      .filter((id): id is string => !!id && id.startsWith(`${prefix}-`))
+      .map((id) => parseInt(id.slice(prefix.length + 1), 10))
+      .filter((n) => !isNaN(n));
+    const next = used.length > 0 ? Math.max(...used) + 1 : 1;
+    return `${prefix}-${String(next).padStart(3, '0')}`;
+  };
+
   // Handlers
   const handleAddOrder = (newOrder: OrderItem) => {
-    let orderToSave: OrderItem = { ...newOrder, paymentStatus: newOrder.paymentStatus || 'Pendiente' };
+    let orderToSave: OrderItem = {
+      ...newOrder,
+      orderId: getNextSequentialOrderId('ORD'),
+      paymentStatus: newOrder.paymentStatus || 'Pendiente'
+    };
     if (shouldDeductInventory(orderToSave.status)) {
       const { updatedInventory, deductedCount, summary } = deductInventoryForOrder(orderToSave, inventory);
       setInventory(updatedInventory);
@@ -445,7 +464,11 @@ export default function App() {
     },
     navigateToCrm?: boolean
   ) => {
-    let orderToSave: OrderItem = { ...newOrder, paymentStatus: newOrder.paymentStatus || 'Pendiente' };
+    let orderToSave: OrderItem = {
+      ...newOrder,
+      orderId: getNextSequentialOrderId('ORD'),
+      paymentStatus: newOrder.paymentStatus || 'Pendiente'
+    };
 
     if (shouldDeductInventory(orderToSave.status)) {
       const { updatedInventory, deductedCount, summary } = deductInventoryForOrder(orderToSave, inventory);
@@ -697,6 +720,77 @@ export default function App() {
     setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
   };
 
+  // Mirror of deductInventoryForOrder — only restores what the order itself recorded
+  // it deducted (never re-derived from a template/receta, since those can have
+  // changed since). Used when a wrongly-registered order gets deleted, so its
+  // insumos go back to stock instead of staying silently "missing".
+  const restoreInventoryForOrder = (
+    order: OrderItem,
+    currentInv: InventoryItem[]
+  ): { updatedInventory: InventoryItem[]; restoredCount: number; summary: string } => {
+    let updatedInv = [...currentInv];
+    let restoredCount = 0;
+    const itemNames: string[] = [];
+
+    const applyComponents = (components: BOMComponent[], units: number) => {
+      components.forEach((bom) => {
+        if (bom.isLabor) return;
+        const numQty = typeof bom.qty === 'number' ? bom.qty : parseFloat(String(bom.qty)) || 0;
+        if (numQty <= 0) return;
+
+        const totalToRestore = Math.round(numQty * units * 100) / 100;
+        const bomName = bom.name.toLowerCase().trim();
+        const idx = updatedInv.findIndex((inv) => {
+          const invName = inv.name.toLowerCase().trim();
+          return invName === bomName || invName.includes(bomName) || bomName.includes(invName);
+        });
+
+        if (idx >= 0) {
+          const item = updatedInv[idx];
+          const newStock = Math.round((item.stock + totalToRestore) * 100) / 100;
+          const newStatus: 'alert' | 'ok' | 'warning' =
+            newStock <= item.minStock ? 'alert' : newStock <= item.minStock * 1.5 ? 'warning' : 'ok';
+          updatedInv[idx] = { ...item, stock: newStock, status: newStatus };
+          restoredCount++;
+          itemNames.push(`${item.name} (+${totalToRestore} ${item.stockUnit || ''})`);
+        }
+      });
+    };
+
+    if (order.products && order.products.length > 0) {
+      order.products.forEach((p) => applyComponents(p.bomComponents, p.itemsCount || 1));
+    } else if (order.bomComponents) {
+      applyComponents(order.bomComponents, order.itemsCount || 1);
+    }
+
+    const summary =
+      itemNames.slice(0, 2).join(', ') + (itemNames.length > 2 ? ` y ${itemNames.length - 2} más` : '');
+    return { updatedInventory: updatedInv, restoredCount, summary };
+  };
+
+  // Deletes a wrongly-registered order. If it had already deducted Inventory, gives
+  // that stock back first. Does NOT reverse any payment/ROI/Ganancias Netas already
+  // applied — those are a different kind of correction (EditOrderModal warns about
+  // this before letting the user confirm).
+  const handleDeleteOrder = (orderId: string) => {
+    const target = orders.find((o) => o.id === orderId);
+    if (!target) return;
+
+    if (target.inventoryDeducted) {
+      const { updatedInventory, restoredCount, summary } = restoreInventoryForOrder(target, inventory);
+      if (restoredCount > 0) {
+        setInventory(updatedInventory);
+        showToast(`🗑️ Orden ${target.orderId} eliminada. Inventario restituido: ${summary}`);
+      } else {
+        showToast(`🗑️ Orden ${target.orderId} eliminada.`);
+      }
+    } else {
+      showToast(`🗑️ Orden ${target.orderId} eliminada.`);
+    }
+
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  };
+
   // Actually applies the restock purchase: adds the bought quantity to stock, recalculates
   // unitCost from what was actually paid (Precio de Compra ÷ Cantidad, same convention as
   // Agregar/Editar Insumo), and updates each item's provider to whoever it was just bought from.
@@ -752,7 +846,7 @@ export default function App() {
 
     const expenseEntry: OrderItem = {
       id: `restock-${Date.now()}`,
-      orderId: `CMP-${Math.floor(1000 + Math.random() * 9000)}`,
+      orderId: getNextSequentialOrderId('CMP'),
       client: providerLabel,
       productSpec: `Compra de Insumos: ${namesSummary}`,
       value: -totalSpent,
@@ -897,6 +991,23 @@ export default function App() {
     showToast(`👤 Nuevo cliente "${newClient.name}" registrado en CRM Clientes`);
   };
 
+  // Elimina un cliente del directorio. Las órdenes ya registradas a su nombre se
+  // mantienen tal cual (el historial de ventas no depende de que el cliente siga
+  // existiendo como registro).
+  const handleDeleteClient = (clientId: string) => {
+    const target = clients.find((c) => c.id === clientId);
+    setClients((prev) => prev.filter((c) => c.id !== clientId));
+    showToast(`🗑️ Cliente "${target ? target.name : ''}" eliminado`);
+  };
+
+  // Vacía todo el directorio de clientes de un golpe — pensado para arrancar de
+  // cero (ej. quitar los clientes de ejemplo antes de registrar los reales).
+  const handleDeleteAllClients = () => {
+    const count = clients.length;
+    setClients([]);
+    showToast(`🗑️ Se eliminaron los ${count} clientes registrados`);
+  };
+
   const handleSaveTemplate = (newTemplate: ProductTemplate) => {
     setTemplates((prev) => {
       const existsIndex = prev.findIndex(
@@ -986,6 +1097,7 @@ export default function App() {
               onUpdatePaymentStatus={handleUpdatePaymentStatus}
               onRequestPayment={handleRequestPayment}
               onEditOrder={handleEditOrder}
+              onDeleteOrder={handleDeleteOrder}
               onTransferCash={handleTransferCash}
               searchTerm={globalSearchTerm}
             />
@@ -1017,7 +1129,10 @@ export default function App() {
               onUpdatePaymentStatus={handleUpdatePaymentStatus}
               onRequestPayment={handleRequestPayment}
               onEditOrder={handleEditOrder}
+              onDeleteOrder={handleDeleteOrder}
               onUpdateClient={handleUpdateClient}
+              onDeleteClient={handleDeleteClient}
+              onDeleteAllClients={handleDeleteAllClients}
             />
           )}
 

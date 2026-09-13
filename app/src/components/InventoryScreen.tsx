@@ -10,6 +10,7 @@ interface InventoryScreenProps {
   fixedAssets?: FixedAsset[];
   providers?: Provider[];
   onSaveProvider?: (provider: Provider) => void;
+  onDeleteProvider?: (providerId: string) => void;
   onOpenAddInventoryModal?: () => void;
   onOpenRestockModal?: () => void;
   onUpdateItem: (item: InventoryItem) => void;
@@ -26,6 +27,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   fixedAssets = [],
   providers = [],
   onSaveProvider,
+  onDeleteProvider,
   onOpenAddInventoryModal,
   onOpenRestockModal,
   onUpdateItem,
@@ -47,7 +49,9 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   const [itemToDelete, setItemToDelete] = useState<InventoryItem | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
   const [viewingProviderName, setViewingProviderName] = useState<string | null>(null);
+  const [providerModalEditMode, setProviderModalEditMode] = useState<boolean>(false);
   const [assetToDelete, setAssetToDelete] = useState<FixedAsset | null>(null);
+  const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
 
   const closeActionsMenu = () => {
     setOpenMenuId(null);
@@ -286,7 +290,10 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
                           {item.provider && (
                             <button
                               type="button"
-                              onClick={() => setViewingProviderName(item.provider)}
+                              onClick={() => {
+                                setProviderModalEditMode(false);
+                                setViewingProviderName(item.provider);
+                              }}
                               className="text-[#717973] hover:text-[#0e6c4a] p-0.5 rounded transition-colors cursor-pointer shrink-0"
                               title={`Ver detalles de ${item.provider}`}
                             >
@@ -662,6 +669,95 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
         </div>
       </section>
 
+      {/* Providers Management Section */}
+      <section
+        id="providers-section"
+        className="bg-white border border-[#c1c8c2] rounded-xl p-6 shadow-2xs space-y-4"
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#012d1d] text-[22px]">local_shipping</span>
+            <h2 className="font-headline text-lg md:text-xl font-bold text-[#012d1d]">
+              Gestión de Proveedores
+            </h2>
+          </div>
+          <p className="text-xs md:text-sm text-[#414844] mt-0.5">
+            Directorio de proveedores registrados — consulta, edita o borra sus datos.
+          </p>
+        </div>
+
+        {providers.length === 0 ? (
+          <p className="text-xs text-[#717973] italic bg-[#f4fafd] p-3 rounded-lg border border-[#c1c8c2]">
+            Todavía no hay proveedores registrados.
+          </p>
+        ) : (
+          <div className="overflow-x-auto border border-[#c1c8c2] rounded-lg">
+            <table className="w-full text-left border-collapse min-w-[600px]">
+              <thead>
+                <tr className="border-b border-[#c1c8c2] bg-[#F0F9F4] font-label-caps text-[11px] text-[#414844]">
+                  <th className="py-2.5 px-4 font-semibold">Proveedor</th>
+                  <th className="py-2.5 px-4 font-semibold">Teléfono</th>
+                  <th className="py-2.5 px-4 font-semibold">Dirección</th>
+                  <th className="py-2.5 px-4 font-semibold">Canal de Contacto</th>
+                  <th className="py-2.5 px-4 font-semibold text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-[#c1c8c2]/50">
+                {providers.map((provider) => (
+                  <tr key={provider.id} className="hover:bg-[#f4fafd] transition-colors">
+                    <td className="py-2.5 px-4 font-semibold text-[#012d1d]">{provider.name}</td>
+                    <td className="py-2.5 px-4 text-[#414844]">{provider.phone || '—'}</td>
+                    <td className="py-2.5 px-4 text-[#414844] max-w-[220px] truncate" title={provider.address}>
+                      {provider.address || '—'}
+                    </td>
+                    <td className="py-2.5 px-4 text-[#414844]">{provider.contactChannel || '—'}</td>
+                    <td className="py-2.5 px-4 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          id={`btn-view-provider-${provider.id}`}
+                          onClick={() => {
+                            setProviderModalEditMode(false);
+                            setViewingProviderName(provider.name);
+                          }}
+                          className="p-1.5 rounded-lg text-[#414844] hover:text-[#012d1d] hover:bg-[#eef5f7] border border-[#c1c8c2] transition-colors cursor-pointer"
+                          title={`Ver datos de ${provider.name}`}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">search</span>
+                        </button>
+                        <button
+                          type="button"
+                          id={`btn-edit-provider-${provider.id}`}
+                          onClick={() => {
+                            setProviderModalEditMode(true);
+                            setViewingProviderName(provider.name);
+                          }}
+                          className="p-1.5 rounded-lg text-[#0369a1] hover:bg-[#e0f2fe] border border-[#c1c8c2] transition-colors cursor-pointer"
+                          title={`Editar datos de ${provider.name}`}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">edit</span>
+                        </button>
+                        {onDeleteProvider && (
+                          <button
+                            type="button"
+                            id={`btn-delete-provider-${provider.id}`}
+                            onClick={() => setProviderToDelete(provider)}
+                            className="p-1.5 rounded-lg text-[#ba1a1a] hover:bg-[#ffdad6] border border-[#c1c8c2] transition-colors cursor-pointer"
+                            title={`Eliminar a ${provider.name}`}
+                          >
+                            <span className="material-symbols-outlined text-[15px]">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* Actions Dropdown: rendered in a portal so it always floats above the table's
           scroll containers, no matter how far down the row is. */}
       {openMenuId &&
@@ -785,9 +881,25 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
         isOpen={!!viewingProviderName}
         providerName={viewingProviderName}
         providers={providers}
+        startInEditMode={providerModalEditMode}
         onClose={() => setViewingProviderName(null)}
         onSave={(provider) => {
           onSaveProvider && onSaveProvider(provider);
+        }}
+      />
+
+      {/* Confirm Delete Provider Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!providerToDelete}
+        itemName={providerToDelete?.name}
+        title="¿Eliminar proveedor definitivamente?"
+        message="¿Estás seguro de que deseas eliminar este proveedor? Los insumos que lo tenían asignado conservan su nombre, pero dejará de existir como registro editable."
+        onClose={() => setProviderToDelete(null)}
+        onConfirm={() => {
+          if (providerToDelete && onDeleteProvider) {
+            onDeleteProvider(providerToDelete.id);
+          }
+          setProviderToDelete(null);
         }}
       />
 

@@ -30,6 +30,7 @@ interface SalesCrmScreenProps {
   onUpdateClient?: (client: ClientProfile) => void;
   onDeleteClient?: (clientId: string) => void;
   onDeleteAllClients?: () => void;
+  onUpdateQuotationNotes?: (orderId: string, notes: string) => void;
 }
 
 type TierFilter = 'ALL' | ClientTier;
@@ -56,7 +57,8 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
   onDeleteOrder,
   onUpdateClient,
   onDeleteClient,
-  onDeleteAllClients
+  onDeleteAllClients,
+  onUpdateQuotationNotes
 }) => {
   const [selectedClientId, setSelectedClientId] = useState<string>(clients[0]?.id || 'cli-1');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -519,6 +521,11 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
         onSelectOrder={(ordId) => {
           setSelectedOrderId(ordId);
         }}
+        onEditOrder={(ordId) => {
+          const ord = orders.find((o) => o.id === ordId);
+          if (ord) setOrderToEdit(ord);
+        }}
+        onDeleteOrder={onDeleteOrder}
       />
 
       {/* Order Summary Modal */}
@@ -538,6 +545,7 @@ export const SalesCrmScreen: React.FC<SalesCrmScreenProps> = ({
               }
             : undefined
         }
+        onUpdateQuotationNotes={onUpdateQuotationNotes}
       />
 
       {/* Edit Order Modal */}

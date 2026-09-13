@@ -47,7 +47,12 @@ export const ProductEngineeringScreen: React.FC<ProductEngineeringScreenProps> =
   onDeleteTemplate,
   onConfirmOrder,
 }) => {
-  const [salePrice, setSalePrice] = useState<number>(29000);
+  // Precio de venta por defecto: el que da un margen del 35% sobre el costo de los
+  // insumos ya cargados — no un número fijo que no tiene relación con la receta real.
+  const [salePrice, setSalePrice] = useState<number>(() => {
+    const initialCost = bomList.reduce((acc, item) => acc + item.totalCost, 0);
+    return initialCost > 0 ? Math.round(initialCost / (1 - 0.35)) : 0;
+  });
   const [activePreset, setActivePreset] = useState<string>('Agenda argolla lateral');
   const [isConfirmOrderOpen, setIsConfirmOrderOpen] = useState<boolean>(false);
   const [saveTemplateTarget, setSaveTemplateTarget] = useState<TemplateTarget | null>(null);
@@ -118,8 +123,8 @@ export const ProductEngineeringScreen: React.FC<ProductEngineeringScreenProps> =
       {
         id: `prod-${Date.now()}`,
         bomList: [],
-        activePreset: 'Personalizado',
-        salePrice: 29000,
+        activePreset: '[Sin Plantilla]',
+        salePrice: 0,
       },
     ]);
   };
@@ -153,13 +158,13 @@ export const ProductEngineeringScreen: React.FC<ProductEngineeringScreenProps> =
       if (remaining.length > 0) {
         handleLoadTemplate(remaining[0].name);
       } else {
-        setActivePreset('Personalizado');
+        setActivePreset('[Sin Plantilla]');
       }
     } else {
       if (remaining.length > 0) {
         handleLoadTemplateForExtra(target, remaining[0].name);
       } else {
-        updateExtraProduct(target, (prev) => ({ ...prev, activePreset: 'Personalizado' }));
+        updateExtraProduct(target, (prev) => ({ ...prev, activePreset: '[Sin Plantilla]' }));
       }
     }
   };
@@ -188,9 +193,9 @@ export const ProductEngineeringScreen: React.FC<ProductEngineeringScreenProps> =
           const block = extraProducts.find((p) => p.id === saveTemplateTarget);
           return block
             ? { bomList: block.bomList, salePrice: block.salePrice, activePreset: block.activePreset }
-            : { bomList: [], salePrice: 29000, activePreset: 'Personalizado' };
+            : { bomList: [], salePrice: 0, activePreset: '[Sin Plantilla]' };
         })()
-      : { bomList: [], salePrice: 29000, activePreset: 'Personalizado' };
+      : { bomList: [], salePrice: 0, activePreset: '[Sin Plantilla]' };
 
   return (
     <div id="screen-product-engineering" className="space-y-6 animate-fadeIn">
@@ -710,7 +715,9 @@ const ProductRecipeCard: React.FC<ProductRecipeCardProps> = ({
                 </option>
               ))}
               {!templates.some((t) => t.name === activePreset) && (
-                <option value="">{activePreset} (Personalizado)</option>
+                <option value="">
+                  {activePreset === '[Sin Plantilla]' ? activePreset : `${activePreset} (Personalizado)`}
+                </option>
               )}
             </select>
 

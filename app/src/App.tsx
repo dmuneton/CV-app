@@ -63,6 +63,16 @@ export default function App() {
       return [...prev, provider].sort((a, b) => a.name.localeCompare(b.name));
     });
   };
+
+  // Elimina un proveedor del directorio — los insumos que lo tenían asignado
+  // conservan su nombre como texto (no se borran ni quedan huérfanos), simplemente
+  // deja de existir como registro editable con teléfono/dirección/canal.
+  const handleDeleteProvider = (providerId: string) => {
+    const target = providers.find((p) => p.id === providerId);
+    setProviders((prev) => prev.filter((p) => p.id !== providerId));
+    showToast(`🗑️ Proveedor "${target ? target.name : ''}" eliminado`);
+  };
+
   // Saldo en Caja: starts at $0 / $0 and only accumulates payments confirmed from here on
   const [cashBalance, setCashBalance] = useState<{ efectivo: number; banco: number }>({
     efectivo: 0,
@@ -248,10 +258,12 @@ export default function App() {
   // Ganancias Netas. Once every fixed asset is 100% recuperado, the whole profit goes to
   // Ganancias Netas; the 50/50 split resumes automatically as soon as a new asset (with
   // pending ROI) is registered.
-  const allocateOrderProfit = (order: OrderItem) => {
+  // Devuelve exactamente cómo se repartió la ganancia (Ganancias Netas + por activo) —
+  // se guarda en la propia orden para poder revertirlo con precisión si se borra.
+  const allocateOrderProfit = (order: OrderItem): OrderItem['profitAllocation'] | null => {
     const bomCost = calculateOrderBomCost(order);
     const profit = order.value - bomCost;
-    if (profit <= 0) return;
+    if (profit <= 0) return null;
 
     const pendingAssets = fixedAssets
       .filter((a) => a.percentage < 100)
@@ -262,11 +274,12 @@ export default function App() {
       showToast(
         `💚 Orden ${order.orderId}: ganancia de $${profit.toLocaleString()} sumada íntegra a Ganancias Netas (todos los activos fijos ya recuperaron el 100%).`
       );
-      return;
+      return { netProfit: profit, assets: [] };
     }
 
     let roiBudget = Math.round(profit * 0.5);
     const netShare = profit - roiBudget;
+    const assetAllocations: { assetId: string; amount: number }[] = [];
 
     const updatedAssetsById = new Map(fixedAssets.map((a) => [a.id, a]));
     for (const asset of pendingAssets) {
@@ -285,6 +298,7 @@ export default function App() {
         percentage: newPercentage,
         status: newPercentage >= 100 ? 'RECOVERED' : 'IN PROGRESS'
       });
+      assetAllocations.push({ assetId: asset.id, amount: allocation });
 
       roiBudget -= allocation;
     }
@@ -300,6 +314,8 @@ export default function App() {
     showToast(
       `💚 Orden ${order.orderId}: ganancia de $${profit.toLocaleString()} distribuida — $${roiApplied.toLocaleString()} a ROI de activos fijos y $${netTotal.toLocaleString()} a Ganancias Netas.`
     );
+
+    return { netProfit: netTotal, assets: assetAllocations };
   };
 
   // Helper to deduct confirmed BOM supplies from Inventory when an order reaches a deducting status
@@ -502,14 +518,12 @@ export default function App() {
         email: clientData.newClient.email || '',
         phone: clientData.newClient.phone || '',
         address: clientData.newClient.address || orderToSave.deliveryAddress || '',
-        totalPurchased: orderToSave.value,
-        purchases: [
-          {
-            item: orderToSave.productSpec,
-            date: 'Hoy',
-            amount: orderToSave.value
-          }
-        ],
+        // Nada de esto se pre-llena con esta orden — getClientOrders/getClientTotalPurchased
+        // ya la encuentran en vivo por nombre de cliente. Duplicarla aquí (como se hacía
+        // antes) dejaba un rastro fantasma en Ventas Totales y en el historial del cliente
+        // si la orden se borraba después.
+        totalPurchased: 0,
+        purchases: [],
         affinity: {
           title: 'Afinidad de Producto',
           description: `Compra inicial registrada: ${orderToSave.productSpec}`,
@@ -518,26 +532,9 @@ export default function App() {
         }
       };
       setClients((prev) => [createdClient, ...prev]);
-    } else if (clientData.isExisting && clientData.clientId) {
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === clientData.clientId
-            ? {
-                ...c,
-                totalPurchased: (c.totalPurchased || 0) + orderToSave.value,
-                purchases: [
-                  {
-                    item: orderToSave.productSpec,
-                    date: 'Hoy',
-                    amount: orderToSave.value
-                  },
-                  ...c.purchases
-                ]
-              }
-            : c
-        )
-      );
     }
+    // Cliente ya existente: no hace falta tocar sus datos — getClientOrders /
+    // getClientTotalPurchased encuentran esta orden en vivo por nombre de cliente.
 
     if (navigateToCrm) {
       setCurrentScreen('sales-crm');
@@ -641,8 +638,10 @@ export default function App() {
     const isFullySettled = newAmountPaid >= baseOrder.value;
     const finalPaymentStatus: OrderItem['paymentStatus'] = isFullySettled ? 'Pagado' : 'Abono';
 
+    let profitAllocation = baseOrder.profitAllocation;
     if (isFullySettled && !baseOrder.profitAllocated) {
-      allocateOrderProfit(baseOrder);
+      const allocation = allocateOrderProfit(baseOrder);
+      if (allocation) profitAllocation = allocation;
     }
 
     setOrders((prevOrders) =>
@@ -653,7 +652,12 @@ export default function App() {
           paymentStatus: finalPaymentStatus,
           paymentMethod: method,
           amountPaid: newAmountPaid,
-          profitAllocated: order.profitAllocated || isFullySettled
+          profitAllocated: order.profitAllocated || isFullySettled,
+          profitAllocation,
+          // Se acumula (no se reemplaza) porque una misma orden puede pagarse en
+          // varios abonos, incluso en métodos distintos — hace falta la lista
+          // completa para poder revertir Saldo en Caja con precisión si se borra.
+          paymentHistory: [...(order.paymentHistory || []), { method, amount }]
         };
       })
     );
@@ -720,6 +724,13 @@ export default function App() {
     setOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
   };
 
+  // Guarda la nota "Contiene:" de la Cotización de una orden — independiente de su
+  // status/pago, para que Daniel pueda revisarla o editarla en cualquier otro momento,
+  // no solo mientras genera el PDF.
+  const handleUpdateQuotationNotes = (orderId: string, notes: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, quotationNotes: notes } : o)));
+  };
+
   // Mirror of deductInventoryForOrder — only restores what the order itself recorded
   // it deducted (never re-derived from a template/receta, since those can have
   // changed since). Used when a wrongly-registered order gets deleted, so its
@@ -768,26 +779,114 @@ export default function App() {
     return { updatedInventory: updatedInv, restoredCount, summary };
   };
 
-  // Deletes a wrongly-registered order. If it had already deducted Inventory, gives
-  // that stock back first. Does NOT reverse any payment/ROI/Ganancias Netas already
-  // applied — those are a different kind of correction (EditOrderModal warns about
-  // this before letting the user confirm).
+  // Deletes a wrongly-registered order and undoes everything it caused: gives back any
+  // Inventory it already deducted, reverses every payment it registered in Saldo en
+  // Caja, and reverses the exact Ganancias Netas / ROI de activos split it triggered —
+  // so a deleted order leaves zero trace in Ventas Totales, Saldo en Caja, Ganancias
+  // Netas or ROI, exactly as if it had never been registered.
   const handleDeleteOrder = (orderId: string) => {
     const target = orders.find((o) => o.id === orderId);
     if (!target) return;
+
+    const notes: string[] = [];
 
     if (target.inventoryDeducted) {
       const { updatedInventory, restoredCount, summary } = restoreInventoryForOrder(target, inventory);
       if (restoredCount > 0) {
         setInventory(updatedInventory);
-        showToast(`🗑️ Orden ${target.orderId} eliminada. Inventario restituido: ${summary}`);
-      } else {
-        showToast(`🗑️ Orden ${target.orderId} eliminada.`);
+        notes.push(`inventario restituido (${summary})`);
       }
-    } else {
-      showToast(`🗑️ Orden ${target.orderId} eliminada.`);
     }
 
+    // Si era una compra de insumos (isExpense) ya marcada "Recibido", applyRestockReceipt
+    // ya sumó esa cantidad al stock — se revierte restándola de nuevo. El costo unitario
+    // que esa recepción dejó no se revierte (no se guarda cuál era antes), igual que
+    // cualquier otro ajuste manual de costo.
+    if (target.isExpense && target.status === 'Recibido' && target.purchasedItems && target.purchasedItems.length > 0) {
+      const byItemId = new Map(target.purchasedItems.map((p) => [p.itemId, p]));
+      setInventory((prevInv) =>
+        prevInv.map((item) => {
+          const purchased = byItemId.get(item.id);
+          if (!purchased || purchased.qty <= 0) return item;
+          const newStock = Math.max(0, Math.round((item.stock - purchased.qty) * 100) / 100);
+          const newStatus: InventoryItem['status'] =
+            newStock <= item.minStock ? 'alert' : newStock <= item.minStock * 1.5 ? 'warning' : 'ok';
+          return { ...item, stock: newStock, status: newStatus };
+        })
+      );
+      notes.push('cantidad recibida revertida del inventario');
+    }
+
+    // Revierte cada pago que esta orden haya registrado en Saldo en Caja — una orden
+    // puede tener varios abonos, incluso en métodos distintos, por eso se recorre el
+    // historial completo en vez de solo el último método/monto.
+    const paymentEvents =
+      target.paymentHistory && target.paymentHistory.length > 0
+        ? target.paymentHistory
+        : target.amountPaid && target.amountPaid > 0 && target.paymentMethod
+        ? [{ method: target.paymentMethod, amount: target.amountPaid }]
+        : [];
+    if (paymentEvents.length > 0) {
+      // Una orden de venta sumó este dinero a Saldo en Caja al recibir el pago —
+      // revertirla lo resta. Una compra de insumos (isExpense) hizo lo contrario (lo
+      // restó al comprar) — revertirla se lo devuelve.
+      const sign = target.isExpense ? 1 : -1;
+      setCashBalance((prev) => {
+        let efectivo = prev.efectivo;
+        let banco = prev.banco;
+        paymentEvents.forEach((p) => {
+          if (p.method === 'Efectivo') efectivo = Math.max(0, efectivo + sign * p.amount);
+          else banco = Math.max(0, banco + sign * p.amount);
+        });
+        return { efectivo, banco };
+      });
+      const totalReversed = paymentEvents.reduce((acc, p) => acc + p.amount, 0);
+      notes.push(`$${totalReversed.toLocaleString()} ${target.isExpense ? 'devueltos a' : 'revertidos de'} Saldo en Caja`);
+    }
+
+    // Revierte exactamente el reparto de ganancia que esta orden generó al pagarse.
+    if (target.profitAllocation) {
+      const { netProfit: netAmount, assets } = target.profitAllocation;
+      if (netAmount) {
+        setNetProfit((prev) => Math.max(0, prev - netAmount));
+        notes.push(`-$${netAmount.toLocaleString()} revertidos de Ganancias Netas`);
+      }
+      if (assets.length > 0) {
+        setFixedAssets((prev) =>
+          prev.map((a) => {
+            const match = assets.find((x) => x.assetId === a.id);
+            if (!match) return a;
+            const newRecovered = Math.max(0, a.recoveredAmount - match.amount);
+            const newPercentage =
+              a.initialCost > 0 ? Math.min(100, Math.round((newRecovered / a.initialCost) * 100)) : 0;
+            return {
+              ...a,
+              recoveredAmount: newRecovered,
+              percentage: newPercentage,
+              status: newPercentage >= 100 ? ('RECOVERED' as const) : ('IN PROGRESS' as const)
+            };
+          })
+        );
+        notes.push('ROI de activos ajustado');
+      }
+    }
+
+    // Limpia cualquier entrada redundante en el historial del cliente que haya
+    // quedado reflejando esta misma orden (ver handleConfirmOrderFromEngineering —
+    // las órdenes ya no crean estas entradas, pero alguna anterior podría tenerla).
+    const clientKey = target.client.toLowerCase().trim();
+    const specKey = target.productSpec.toLowerCase();
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.name.toLowerCase().trim() !== clientKey) return c;
+        const filtered = (c.purchases || []).filter(
+          (p) => !(specKey.includes(p.item.toLowerCase()) || p.item.toLowerCase().includes(specKey))
+        );
+        return filtered.length === c.purchases.length ? c : { ...c, purchases: filtered };
+      })
+    );
+
+    showToast(`🗑️ Orden ${target.orderId} eliminada${notes.length > 0 ? ` — ${notes.join(', ')}` : ''}.`);
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
 
@@ -889,7 +988,12 @@ export default function App() {
           stock: newStock,
           unitCost: purchased.unitCost,
           provider: purchased.provider || item.provider,
-          status: newStatus
+          status: newStatus,
+          // Reemplazan lo que hubiera antes — son la compra que se acaba de recibir,
+          // no un acumulado. "Editar Insumo" los muestra tal cual, sin derivarlos
+          // del stock total.
+          lastPurchasePrice: purchased.totalCost,
+          lastPurchaseQty: purchased.qty
         };
       })
     );
@@ -1099,6 +1203,7 @@ export default function App() {
               onEditOrder={handleEditOrder}
               onDeleteOrder={handleDeleteOrder}
               onTransferCash={handleTransferCash}
+              onUpdateQuotationNotes={handleUpdateQuotationNotes}
               searchTerm={globalSearchTerm}
             />
           )}
@@ -1133,6 +1238,7 @@ export default function App() {
               onUpdateClient={handleUpdateClient}
               onDeleteClient={handleDeleteClient}
               onDeleteAllClients={handleDeleteAllClients}
+              onUpdateQuotationNotes={handleUpdateQuotationNotes}
             />
           )}
 
@@ -1142,6 +1248,7 @@ export default function App() {
               fixedAssets={fixedAssets}
               providers={providers}
               onSaveProvider={handleSaveProvider}
+              onDeleteProvider={handleDeleteProvider}
               onOpenAddInventoryModal={() => setIsAddInventoryOpen(true)}
               onOpenRestockModal={() => setIsRestockOpen(true)}
               onUpdateItem={handleUpdateInventoryItem}

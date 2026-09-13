@@ -8,13 +8,22 @@ pestaña abierta — al recargar, vuelve a los datos de ejemplo.
 ## ⚠️ Si ya tenías la base de datos conectada (actualización)
 
 Esta versión agrega columnas nuevas a `orders` (`created_at`, para los gráficos
-de Informes; `delivery_date`, para la Fecha de Entrega al confirmar una orden).
-**Antes de actualizar el sitio en Hostinger**, entra a phpMyAdmin → pestaña
-SQL, y ejecuta:
+de Informes; `delivery_date`, para la Fecha de Entrega al confirmar una orden;
+`payment_history` y `profit_allocation`, para poder revertir Saldo en Caja /
+Ganancias Netas / ROI con precisión si borras una orden; `quotation_notes`, la
+nota "Contiene:" editable de la Cotización en PDF) y a `inventory_items`
+(`last_purchase_price` y `last_purchase_qty`, para que "Editar Insumo" muestre
+siempre la última compra real y no un acumulado). **Antes de actualizar
+el sitio en Hostinger**, entra a phpMyAdmin → pestaña SQL, y ejecuta:
 
 ```sql
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date VARCHAR(16) NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_history JSON NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS profit_allocation JSON NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS quotation_notes TEXT NULL;
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_purchase_price DECIMAL(14,2) NULL;
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_purchase_qty DECIMAL(14,2) NULL;
 ```
 
 Si no las ejecutas primero, guardar cambios en la aplicación empezará a fallar

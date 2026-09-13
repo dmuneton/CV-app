@@ -42,16 +42,28 @@ CREATE TABLE IF NOT EXISTS orders (
   delivery_date VARCHAR(16) NULL,
   is_expense TINYINT(1) NOT NULL DEFAULT 0,
   purchased_items JSON NULL,
+  -- Cada abono/pago aplicado a esta orden (método + monto) — para poder revertir
+  -- Saldo en Caja con precisión si la orden se borra.
+  payment_history JSON NULL,
+  -- Cómo se repartió la ganancia de esta orden entre Ganancias Netas y cada activo
+  -- fijo (ROI) al pagarse por completo — para poder revertirlo si se borra.
+  profit_allocation JSON NULL,
+  -- Nota "Contiene:" editable de la Cotización en PDF — se guarda para poder
+  -- revisarla o editarla en cualquier otro momento, no solo al generar el PDF.
+  quotation_notes TEXT NULL,
   sort_order INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- IMPORTANTE si ya habías ejecutado este archivo antes (la tabla `orders` ya
--- existía sin esta columna): esta línea se la agrega. Si acabas de crear la
--- tabla arriba, no pasa nada — la columna ya está ahí y esto no la duplica.
--- Ejecútala ANTES de subir el código nuevo, o guardar cambios en la aplicación
+-- existía sin estas columnas): estas líneas se las agregan. Si acabas de crear la
+-- tabla arriba, no pasa nada — las columnas ya están ahí y esto no las duplica.
+-- Ejecútalas ANTES de subir el código nuevo, o guardar cambios en la aplicación
 -- empezará a fallar.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at VARCHAR(32) NULL;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date VARCHAR(16) NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_history JSON NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS profit_allocation JSON NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS quotation_notes TEXT NULL;
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -67,8 +79,19 @@ CREATE TABLE IF NOT EXISTS inventory_items (
   category VARCHAR(64) NULL,
   min_stock DECIMAL(14,2) NOT NULL DEFAULT 0,
   is_archived TINYINT(1) NOT NULL DEFAULT 0,
+  -- El precio y la cantidad de la última compra real de este insumo (por Orden de
+  -- Reabastecimiento recibida, o por edición manual) — se reemplazan en cada compra
+  -- nueva, nunca se suman ni se derivan del stock acumulado.
+  last_purchase_price DECIMAL(14,2) NULL,
+  last_purchase_qty DECIMAL(14,2) NULL,
   sort_order INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- IMPORTANTE si ya habías ejecutado este archivo antes (la tabla `inventory_items`
+-- ya existía sin estas columnas): esta línea las agrega. Ejecútala ANTES de subir
+-- el código nuevo, o guardar cambios en la aplicación empezará a fallar.
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_purchase_price DECIMAL(14,2) NULL;
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS last_purchase_qty DECIMAL(14,2) NULL;
 
 CREATE TABLE IF NOT EXISTS clients (
   id VARCHAR(64) NOT NULL PRIMARY KEY,

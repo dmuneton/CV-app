@@ -68,7 +68,9 @@ export const AddInventoryItemModal: React.FC<AddInventoryItemModalProps> = ({
       leadTimeType,
       leadTimeDays: Number(leadTimeDays),
       category,
-      minStock: Number(minStock)
+      minStock: Number(minStock),
+      lastPurchasePrice: Number(purchasePrice),
+      lastPurchaseQty: Number(purchaseQty)
     };
 
     onAddItem(newItem);

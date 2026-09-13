@@ -29,7 +29,13 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({
   const [newProviderChannel, setNewProviderChannel] = useState('');
   const [category, setCategory] = useState<'Plantas' | 'Papelería'>('Plantas');
   // Costo Unitario is derived, not typed directly: precio de compra ÷ cantidad comprada.
-  // Prefilled so it reproduces the item's current unitCost until the user logs a new purchase.
+  // Estos dos SIEMPRE arrancan en "1 unidad al costo unitario actual" — nunca en el
+  // stock acumulado — porque no representan una compra ya hecha, sino la compra que el
+  // usuario registraría *desde aquí* si edita estos campos. Prefillarlos con
+  // stock × unitCost (como se hacía antes) hacía que, después de un reabastecimiento,
+  // esta ventana mostrara "compraste 20 por $20" cuando en realidad la última compra
+  // fue de 10 por $10 — el stock de 20 es la suma de esa compra con el stock previo,
+  // no una sola compra de 20.
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
   const [purchaseQty, setPurchaseQty] = useState<number>(1);
   const [stock, setStock] = useState<number>(0);
@@ -50,9 +56,17 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({
       setNewProviderAddress('');
       setNewProviderChannel('');
       setCategory(item.category === 'Papelería' ? 'Papelería' : 'Plantas');
-      const initialQty = item.stock > 0 ? item.stock : 1;
-      setPurchaseQty(initialQty);
-      setPurchasePrice(Math.round((item.unitCost || 0) * initialQty * 100) / 100);
+      // La última compra real guardada (por una Orden de Reabastecimiento recibida, o
+      // por una edición anterior) — nunca derivada del stock acumulado. Si el insumo
+      // todavía no tiene una registrada, cae en "1 unidad al costo unitario actual"
+      // como punto de partida neutro.
+      if (item.lastPurchaseQty && item.lastPurchaseQty > 0 && item.lastPurchasePrice !== undefined) {
+        setPurchaseQty(item.lastPurchaseQty);
+        setPurchasePrice(item.lastPurchasePrice);
+      } else {
+        setPurchaseQty(1);
+        setPurchasePrice(Math.round((item.unitCost || 0) * 100) / 100);
+      }
       setStock(item.stock || 0);
       setStockUnit(item.stockUnit || 'unidades');
       setMinStock(item.minStock || 0);
@@ -92,7 +106,11 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({
       leadTimeDays: Number(leadTimeDays),
       category,
       minStock: Number(minStock),
-      status: Number(stock) <= Number(minStock) ? 'alert' : 'ok'
+      status: Number(stock) <= Number(minStock) ? 'alert' : 'ok',
+      // Lo que haya en estos campos al guardar pasa a ser la "última compra" — si no
+      // se tocaron, siguen siendo la misma que ya tenía.
+      lastPurchasePrice: Number(purchasePrice),
+      lastPurchaseQty: Number(purchaseQty)
     };
 
     onSave(updatedItem);
@@ -280,6 +298,11 @@ export const EditInventoryItemModal: React.FC<EditInventoryItemModalProps> = ({
               />
             </div>
           </div>
+          <p className="text-[10px] text-[#717973] -mt-2">
+            Esta es tu última compra registrada de este insumo — cambiarla solo recalcula el Costo Unitario
+            (Precio ÷ Cantidad), no modifica el Stock Actual por sí solo. Para registrar una compra nueva que
+            sume al stock, usa "Generar Orden de Reabastecimiento".
+          </p>
 
           <div className="bg-[#F0F9F4] border border-[#a0f4c8] rounded-lg px-3.5 py-2.5 flex items-center justify-between">
             <span className="font-label-caps text-[10px] text-[#0e6c4a] font-semibold uppercase tracking-wider">

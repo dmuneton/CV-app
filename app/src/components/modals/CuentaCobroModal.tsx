@@ -52,6 +52,10 @@ export const CuentaCobroModal: React.FC<CuentaCobroModalProps> = ({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    // Ruta absoluta al logo — el documento se escribe en una ventana about:blank y
+    // necesita el origen explícito para resolver la imagen correctamente al imprimir.
+    const logoUrl = `${window.location.origin}/logo.png`;
+
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="es">
@@ -91,6 +95,11 @@ export const CuentaCobroModal: React.FC<CuentaCobroModalProps> = ({
               font-weight: 800;
               color: #111827;
               letter-spacing: -0.5px;
+            }
+            .brand-logo {
+              height: 42px;
+              width: auto;
+              filter: grayscale(1);
             }
             .doc-title {
               text-align: right;
@@ -229,7 +238,7 @@ export const CuentaCobroModal: React.FC<CuentaCobroModalProps> = ({
         <body>
           <div class="header">
             <div>
-              <div class="brand-title">CREATIVIDAD VERDE</div>
+              <img src="${logoUrl}" alt="Creatividad Verde" class="brand-logo" />
             </div>
             <div class="doc-title">
               <h1>CUENTA DE COBRO</h1>
@@ -323,9 +332,6 @@ export const CuentaCobroModal: React.FC<CuentaCobroModalProps> = ({
               <h3 className="font-headline text-lg font-bold">
                 Cuenta de Cobro #{order.orderId}
               </h3>
-              <p className="text-xs text-gray-300">
-                Generador de documento oficial para cobro al cliente (Escala de Grises)
-              </p>
             </div>
           </div>
           <button
@@ -341,9 +347,7 @@ export const CuentaCobroModal: React.FC<CuentaCobroModalProps> = ({
           {/* Document Header Preview */}
           <div className="border-b-2 border-[#111827] pb-3 flex justify-between items-start">
             <div>
-              <h2 className="font-headline font-bold text-xl text-[#111827]">
-                CREATIVIDAD VERDE
-              </h2>
+              <img src="/logo.png" alt="Creatividad Verde" className="h-10 w-auto" />
             </div>
             <div className="text-right">
               <span className="font-headline font-bold text-base text-[#111827] uppercase block">

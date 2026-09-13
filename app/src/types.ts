@@ -43,6 +43,15 @@ export interface OrderItem {
   amountPaid?: number;
   /** Guards against double-crediting ROI/Ganancias Netas if paymentStatus reaches "Pagado" more than once */
   profitAllocated?: boolean;
+  /** Every payment event applied to this order — a single order can be paid across
+   *  several abonos, potentially split between Efectivo and Banco. Used to precisely
+   *  reverse Saldo en Caja if the order gets deleted. */
+  paymentHistory?: { method: 'Efectivo' | 'Banco'; amount: number }[];
+  /** Exactly how this order's profit was split between Ganancias Netas and each fixed
+   *  asset's ROI when it was fully paid (set once, since that only ever happens once
+   *  per order) — so deleting the order can reverse precisely what it added instead of
+   *  leaving Ganancias Netas/ROI permanently inflated. */
+  profitAllocation?: { netProfit: number; assets: { assetId: string; amount: number }[] };
   /** Where this specific order ships — may differ from the client's stored address */
   deliveryAddress?: string;
   /** Marks this as a non-sales ledger entry (e.g. an inventory restock purchase) instead
@@ -51,6 +60,11 @@ export interface OrderItem {
   /** The insumos bought in a restock purchase (isExpense orders only). Applied to
    *  Inventory only once the order's status is set to "Recibido". */
   purchasedItems?: PurchasedItem[];
+  /** Nota "Contiene:" de la Cotización en PDF — detalle editable de lo que incluye un
+   *  producto personalizado, para aclararle al cliente cosas que no son obvias. Se
+   *  guarda con la orden para poder revisarla o editarla en cualquier otro momento,
+   *  no solo al generar el PDF. */
+  quotationNotes?: string;
 }
 
 export interface PurchasedItem {
@@ -154,6 +168,12 @@ export interface InventoryItem {
   category: 'Papelería' | 'Plantas' | 'Acabados' | 'Hardware' | 'Botánica' | 'Macetas';
   minStock: number;
   isArchived?: boolean;
+  /** El precio total y la cantidad de la última compra registrada de este insumo —
+   *  ya sea por una Orden de Reabastecimiento marcada "Recibido" o por editarlo
+   *  manualmente. Se REEMPLAZAN en cada compra nueva, nunca se suman ni se derivan
+   *  del stock acumulado — son la última transacción real, no un total histórico. */
+  lastPurchasePrice?: number;
+  lastPurchaseQty?: number;
 }
 
 export interface Provider {

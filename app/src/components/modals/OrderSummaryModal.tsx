@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ClientProfile, OrderItem } from '../../types';
 import { PaymentActionMode } from './PaymentMethodModal';
 import { CuentaCobroModal } from './CuentaCobroModal';
+import { CotizacionModal } from './CotizacionModal';
 
 interface OrderSummaryModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface OrderSummaryModalProps {
   onRequestPayment?: (orderId: string, mode: PaymentActionMode) => void;
   onEdit?: (order: OrderItem) => void;
   onNavigateToCrm?: () => void;
+  onUpdateQuotationNotes?: (orderId: string, notes: string) => void;
 }
 
 export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
@@ -24,9 +26,11 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
   onUpdatePaymentStatus,
   onRequestPayment,
   onEdit,
-  onNavigateToCrm
+  onNavigateToCrm,
+  onUpdateQuotationNotes
 }) => {
   const [isCdeCOpen, setIsCdeCOpen] = useState<boolean>(false);
+  const [isCotizacionOpen, setIsCotizacionOpen] = useState<boolean>(false);
 
   if (!isOpen || !order) return null;
 
@@ -634,18 +638,30 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
 
         {/* Footer Actions */}
         <div className="p-4 bg-[#f8faf9] border-t border-[#c1c8c2] flex flex-wrap items-center justify-between gap-3 shrink-0">
-          {/* Left Action: CdeC Button */}
+          {/* Left Actions: CdeC y Cotización */}
           {!order.isExpense && (
-            <button
-              type="button"
-              id="btn-cdec-order"
-              onClick={() => setIsCdeCOpen(true)}
-              className="bg-[#0e6c4a] hover:bg-[#012d1d] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-              title="Generar Cuenta de Cobro (CdeC) en PDF para el cliente"
-            >
-              <span className="material-symbols-outlined text-[16px]">receipt_long</span>
-              <span>CdeC (Cuenta de Cobro)</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="btn-cdec-order"
+                onClick={() => setIsCdeCOpen(true)}
+                className="bg-[#0e6c4a] hover:bg-[#012d1d] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Generar Cuenta de Cobro (CdeC) en PDF para el cliente"
+              >
+                <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                <span>CdeC (Cuenta de Cobro)</span>
+              </button>
+              <button
+                type="button"
+                id="btn-cotizacion-order"
+                onClick={() => setIsCotizacionOpen(true)}
+                className="bg-white border border-[#0e6c4a] hover:bg-[#f0f9f4] text-[#0e6c4a] px-4 py-2 rounded-xl text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Generar Cotización en PDF para el cliente"
+              >
+                <span className="material-symbols-outlined text-[16px]">request_quote</span>
+                <span>Cotización</span>
+              </button>
+            </div>
           )}
 
           {/* Right Actions: Editar y Cerrar */}
@@ -677,6 +693,15 @@ export const OrderSummaryModal: React.FC<OrderSummaryModalProps> = ({
         onClose={() => setIsCdeCOpen(false)}
         order={order}
         client={client}
+      />
+
+      {/* Modal Cotización (PDF generator) */}
+      <CotizacionModal
+        isOpen={isCotizacionOpen}
+        onClose={() => setIsCotizacionOpen(false)}
+        order={order}
+        client={client}
+        onUpdateQuotationNotes={onUpdateQuotationNotes}
       />
     </div>
   );

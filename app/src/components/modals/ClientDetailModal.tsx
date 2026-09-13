@@ -14,6 +14,8 @@ interface ClientDetailModalProps {
   onClose: () => void;
   onEdit?: (client: ClientProfile) => void;
   onSelectOrder?: (orderId: string) => void;
+  onEditOrder?: (orderId: string) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
 export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
@@ -22,8 +24,11 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
   orders = [],
   onClose,
   onEdit,
-  onSelectOrder
+  onSelectOrder,
+  onEditOrder,
+  onDeleteOrder
 }) => {
+  const [orderToDelete, setOrderToDelete] = React.useState<{ id: string; label: string } | null>(null);
   if (!isOpen || !client) return null;
 
   const clientOrders = getClientOrders(client, orders);
@@ -347,18 +352,45 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
                           ${p.amount.toLocaleString()}
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          {p.isRealOrder && onSelectOrder ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                onSelectOrder(p.id);
-                              }}
-                              className="p-1 rounded hover:bg-[#a0f4c8] text-[#012d1d] border border-[#c1c8c2] transition-colors cursor-pointer"
-                              title="Ver detalle completo de la orden"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">visibility</span>
-                            </button>
+                          {p.isRealOrder ? (
+                            <div className="inline-flex items-center gap-1">
+                              {onSelectOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onSelectOrder(p.id);
+                                  }}
+                                  className="p-1 rounded hover:bg-[#a0f4c8] text-[#012d1d] border border-[#c1c8c2] transition-colors cursor-pointer"
+                                  title="Ver detalle completo de la orden"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                </button>
+                              )}
+                              {onEditOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onEditOrder(p.id);
+                                  }}
+                                  className="p-1 rounded hover:bg-[#e0f2fe] text-[#0369a1] border border-[#c1c8c2] transition-colors cursor-pointer"
+                                  title="Editar esta orden"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">edit</span>
+                                </button>
+                              )}
+                              {onDeleteOrder && (
+                                <button
+                                  type="button"
+                                  onClick={() => setOrderToDelete({ id: p.id, label: `${p.orderId || ''} — ${p.item}` })}
+                                  className="p-1 rounded hover:bg-[#ffdad6] text-[#ba1a1a] border border-[#c1c8c2] transition-colors cursor-pointer"
+                                  title="Borrar esta orden"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">delete</span>
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-[10px] text-[#717973]">Histórico</span>
                           )}
@@ -370,6 +402,38 @@ export const ClientDetailModal: React.FC<ClientDetailModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Inline delete confirmation — a nested modal here would render behind this
+              one (this modal is already the top layer), so it's a banner instead. */}
+          {orderToDelete && (
+            <div className="p-3 rounded-xl bg-[#ffdad6]/40 border border-[#ba1a1a]/30 space-y-2">
+              <p className="text-xs font-semibold text-[#93000a] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">warning</span>
+                <span>¿Borrar definitivamente {orderToDelete.label}?</span>
+              </p>
+              <p className="text-[11px] text-[#93000a]">Esta acción no se puede deshacer.</p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderToDelete(null)}
+                  className="px-3 py-1.5 text-xs font-semibold text-[#414844] hover:bg-white/60 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onDeleteOrder) onDeleteOrder(orderToDelete.id);
+                    setOrderToDelete(null);
+                  }}
+                  className="bg-[#ba1a1a] hover:bg-[#93000a] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[14px]">delete_forever</span>
+                  <span>Sí, Borrar</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}

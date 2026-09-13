@@ -21,6 +21,7 @@ interface DashboardScreenProps {
   onEditOrder?: (order: OrderItem) => void;
   onDeleteOrder?: (orderId: string) => void;
   onTransferCash?: (from: 'efectivo' | 'banco', to: 'efectivo' | 'banco', amount: number) => void;
+  onUpdateQuotationNotes?: (orderId: string, notes: string) => void;
   searchTerm?: string;
 }
 
@@ -38,6 +39,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onEditOrder,
   onDeleteOrder,
   onTransferCash,
+  onUpdateQuotationNotes,
   searchTerm = ''
 }) => {
   const [isTransferCashOpen, setIsTransferCashOpen] = useState(false);
@@ -526,6 +528,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             : undefined
         }
         onNavigateToCrm={() => onNavigate('sales-crm')}
+        onUpdateQuotationNotes={onUpdateQuotationNotes}
       />
 
       {/* Edit Order Modal */}
@@ -563,8 +566,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         itemName={expenseOrderToDelete ? `${expenseOrderToDelete.orderId} — ${expenseOrderToDelete.productSpec}` : undefined}
         message={
           expenseOrderToDelete?.status === 'Recibido'
-            ? 'Esta acción no se puede deshacer. Esta compra ya fue marcada como "Recibido" — borrarla NO quita del inventario lo que ya se sumó, ni devuelve el dinero al Saldo en Caja; ajústalos manualmente ahí si hace falta.'
-            : 'Esta acción no se puede deshacer. El monto ya descontado del Saldo en Caja no se devuelve automáticamente; ajústalo manualmente ahí si hace falta.'
+            ? 'Esta acción no se puede deshacer. Se revertirán la cantidad ya sumada al inventario y el dinero descontado de Saldo en Caja (el costo unitario que quedó registrado con esta compra no se revierte).'
+            : 'Esta acción no se puede deshacer. El monto ya descontado de Saldo en Caja se devolverá automáticamente.'
         }
         onClose={() => setExpenseOrderToDelete(null)}
         onConfirm={() => {

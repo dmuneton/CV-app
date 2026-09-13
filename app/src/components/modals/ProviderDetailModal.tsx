@@ -7,6 +7,9 @@ interface ProviderDetailModalProps {
   providers: Provider[];
   onClose: () => void;
   onSave: (provider: Provider) => void;
+  /** Opens straight into the edit form instead of the read view — used by the
+   *  "Editar" icon in Gestión de Proveedores, as opposed to the "lupa" (view) icon. */
+  startInEditMode?: boolean;
 }
 
 export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
@@ -14,7 +17,8 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
   providerName,
   providers,
   onClose,
-  onSave
+  onSave,
+  startInEditMode = false
 }) => {
   const existing = providerName
     ? providers.find((p) => p.name.toLowerCase().trim() === providerName.toLowerCase().trim())
@@ -33,8 +37,10 @@ export const ProviderDetailModal: React.FC<ProviderDetailModalProps> = ({
       setAddress(existing?.address || '');
       setContactChannel(existing?.contactChannel || '');
       // If this provider has no details on file yet, open straight into edit mode
-      // instead of showing an empty read view.
-      setIsEditing(!existing || (!existing.phone && !existing.address && !existing.contactChannel));
+      // instead of showing an empty read view. The "Editar" icon forces it either way.
+      setIsEditing(
+        startInEditMode || !existing || (!existing.phone && !existing.address && !existing.contactChannel)
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, providerName]);

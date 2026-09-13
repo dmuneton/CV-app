@@ -309,7 +309,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                   Esta acción no se puede deshacer.
                   {order.inventoryDeducted && ' Los insumos que ya se descontaron del inventario se devolverán al stock.'}
                   {(order.paymentStatus !== 'Pendiente' || order.profitAllocated) &&
-                    ' Esta orden ya tiene pagos o ganancias registradas en el Panel de Control — borrarla NO revierte esos montos (Saldo en Caja, Ganancias Netas, ROI de activos); ajústalos ahí manualmente si hace falta.'}
+                    ' Esta orden ya tiene pagos o ganancias registradas — se revertirán automáticamente del Saldo en Caja, Ganancias Netas y ROI de activos.'}
                 </p>
               </div>
               <div className="flex justify-end gap-3">

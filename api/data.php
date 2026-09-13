@@ -97,11 +97,14 @@ function map_order_out(array $r): array {
   if ($r['delivery_address'] !== null) $out['deliveryAddress'] = $r['delivery_address'];
   if (!empty($r['delivery_date'])) $out['deliveryDate'] = $r['delivery_date'];
   if ($r['purchased_items'] !== null) $out['purchasedItems'] = json_decode($r['purchased_items'], true);
+  if (!empty($r['payment_history'])) $out['paymentHistory'] = json_decode($r['payment_history'], true);
+  if (!empty($r['profit_allocation'])) $out['profitAllocation'] = json_decode($r['profit_allocation'], true);
+  if (!empty($r['quotation_notes'])) $out['quotationNotes'] = $r['quotation_notes'];
   return $out;
 }
 
 function map_inventory_out(array $r): array {
-  return [
+  $out = [
     'id' => $r['id'],
     'status' => $r['status'],
     'name' => $r['name'],
@@ -116,6 +119,9 @@ function map_inventory_out(array $r): array {
     'minStock' => (float)$r['min_stock'],
     'isArchived' => (bool)$r['is_archived'],
   ];
+  if (isset($r['last_purchase_price']) && $r['last_purchase_price'] !== null) $out['lastPurchasePrice'] = (float)$r['last_purchase_price'];
+  if (isset($r['last_purchase_qty']) && $r['last_purchase_qty'] !== null) $out['lastPurchaseQty'] = (float)$r['last_purchase_qty'];
+  return $out;
 }
 
 function map_client_out(array $r): array {
@@ -230,11 +236,13 @@ function insert_order(PDO $pdo, array $o, int $index): void {
     'INSERT INTO orders
       (id, order_id, client, product_spec, value, status, payment_status, date_label, created_at, items_count,
        bom_components, products, inventory_deducted, payment_method, amount_paid, profit_allocated,
-       delivery_address, delivery_date, is_expense, purchased_items, sort_order)
+       delivery_address, delivery_date, is_expense, purchased_items, payment_history, profit_allocation,
+       quotation_notes, sort_order)
      VALUES
       (:id, :order_id, :client, :product_spec, :value, :status, :payment_status, :date_label, :created_at, :items_count,
        :bom_components, :products, :inventory_deducted, :payment_method, :amount_paid, :profit_allocated,
-       :delivery_address, :delivery_date, :is_expense, :purchased_items, :sort_order)'
+       :delivery_address, :delivery_date, :is_expense, :purchased_items, :payment_history, :profit_allocation,
+       :quotation_notes, :sort_order)'
   );
   $stmt->execute([
     ':id' => $o['id'],
@@ -257,6 +265,9 @@ function insert_order(PDO $pdo, array $o, int $index): void {
     ':delivery_date' => $o['deliveryDate'] ?? null,
     ':is_expense' => !empty($o['isExpense']) ? 1 : 0,
     ':purchased_items' => isset($o['purchasedItems']) ? json_encode($o['purchasedItems'], JSON_UNESCAPED_UNICODE) : null,
+    ':payment_history' => isset($o['paymentHistory']) ? json_encode($o['paymentHistory'], JSON_UNESCAPED_UNICODE) : null,
+    ':profit_allocation' => isset($o['profitAllocation']) ? json_encode($o['profitAllocation'], JSON_UNESCAPED_UNICODE) : null,
+    ':quotation_notes' => $o['quotationNotes'] ?? null,
     ':sort_order' => $index,
   ]);
 }
@@ -265,10 +276,10 @@ function insert_inventory(PDO $pdo, array $i, int $index): void {
   $stmt = $pdo->prepare(
     'INSERT INTO inventory_items
       (id, status, name, provider, unit_cost, stock, stock_unit, lead_time, lead_time_type,
-       lead_time_days, category, min_stock, is_archived, sort_order)
+       lead_time_days, category, min_stock, is_archived, last_purchase_price, last_purchase_qty, sort_order)
      VALUES
       (:id, :status, :name, :provider, :unit_cost, :stock, :stock_unit, :lead_time, :lead_time_type,
-       :lead_time_days, :category, :min_stock, :is_archived, :sort_order)'
+       :lead_time_days, :category, :min_stock, :is_archived, :last_purchase_price, :last_purchase_qty, :sort_order)'
   );
   $stmt->execute([
     ':id' => $i['id'],
@@ -284,6 +295,8 @@ function insert_inventory(PDO $pdo, array $i, int $index): void {
     ':category' => $i['category'] ?? null,
     ':min_stock' => $i['minStock'] ?? 0,
     ':is_archived' => !empty($i['isArchived']) ? 1 : 0,
+    ':last_purchase_price' => isset($i['lastPurchasePrice']) ? $i['lastPurchasePrice'] : null,
+    ':last_purchase_qty' => isset($i['lastPurchaseQty']) ? $i['lastPurchaseQty'] : null,
     ':sort_order' => $index,
   ]);
 }
